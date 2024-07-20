@@ -214,12 +214,6 @@ class janela_prin:
 
             return freq_info
 
-        def update_cpu_util():
-            cpu_util = psutil.cpu_percent(interval=None, percpu=True)
-        #    print(psutil.getloadavg())
-            # print(os.getloadavg())
-            cpu_utilization.configure(text="CPU utilization: " + str(int(sum(cpu_util) / self.num_cores)) + "%")
-            self.frame_cpu.after(1000, update_cpu_util)
         titulo_cpu_rotulos = ["CPU Name: ", "Vendor: ", "Architecture: "]
         titulo_cpu_rotulos2 = ["Model: ", "Family: ", "Stepping: ", "Bits: ", "Microcode: "]
         cpu_hash = ["brand_raw", "vendor_id_raw", "arch"]
@@ -248,9 +242,9 @@ class janela_prin:
         else:
             ctk.CTkLabel(self.frame_cpu_brand, text="Hyperthreading: Supported (disabled)").pack(anchor="w", padx=5, pady=5)
         self.rende_big_little(self.p_cores, self.e_cores)
-        cpu_utilization = ctk.CTkLabel(self.frame_cpu_brand)
-        cpu_utilization.pack(anchor="w", padx=5, pady=5)
-        update_cpu_util()
+        self.cpu_utilization = ctk.CTkLabel(self.frame_cpu_brand)
+        self.cpu_utilization.pack(anchor="w", padx=5, pady=5)
+        self.update_cpu_util()
         rende_cache_system()
         rende_cpufreq_info()
         for info, hash_cpu in zip(titulo_cpu_rotulos2, cpu_hash2):
@@ -264,6 +258,11 @@ class janela_prin:
             ctk.CTkLabel(self.cpu_errata_frame, text=errata.replace("_", " ") + ": " + cpu_errata[errata], wraplength=300, justify="left").pack(anchor="w", padx=5, pady=5)
         ctk.CTkLabel(self.frame_cpu_brand, text="ISA: " + isa, wraplength=400, justify="left").pack(anchor="w", padx=5, pady=5)
         rende_microcode()
+
+    def update_cpu_util(self):
+            cpu_util = psutil.cpu_percent(interval=None, percpu=True)
+            self.cpu_utilization.configure(text="CPU utilization: " + str(int(sum(cpu_util) / self.num_cores)) + "%")
+            self.task = self.frame_cpu.after(1000, self.update_cpu_util)
 
     def get_core_l1d_cache(self, core):
         try:
@@ -453,15 +452,24 @@ class janela_prin:
             self.cpufreq_module.cancel_task()
         elif self.frame_anterior == "Memory":
             self.memory_module.cancel_task()
+        elif self.frame_anterior == "CPU info":
+            self.cancel_task()
         
         if self.frame_atual == "CPU frequency":
             self.cpufreq_module.start_task()
         elif self.frame_atual == "Memory":
             self.memory_module.start_task()
-            #self.memory_module.start_task()
+        elif self.frame_atual == "CPU info":
+            self.memory_module.start_task()
+
 
         self.frame_anterior = self.frame_atual
             
+    def start_task(self):
+        self.update_cpu_util()
+    
+    def cancel_task(self):
+        self.frame_cpu.after_cancel(self.task)
 
     def init_menu(self):
        # self.menu = ctk.CTkTabview(master=self.janela, command=self.mudar_pagina)
@@ -476,13 +484,8 @@ class janela_prin:
         self.battery_menu_tab = self.menu.add("Battery")  # add tab at the end
 
         self.rende_cpu_info()
-#        self.system_module.rende_system_info(self.cpu_system_tab)
- #       self.cpufreq_module.rende_cpu_freq(menu=self.cpu_freq_tab, num_cores=self.thread_num)
-  #      self.cpuidle_module.rende_cpu_idle(menu=self.cpu_idle_tab)
-   #     self.memory_module.rende_memory(menu=self.cpu_menu_tab)
-    #    self.io_module.rende_io(self.io_menu_tab)
-     #   self.battery_module.rende_battery(self.battery_menu_tab)
 
 ctk.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue"
 ctk.set_appearance_mode("dark")
 main = janela_prin()
+
