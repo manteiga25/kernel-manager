@@ -108,7 +108,7 @@ class memory:
             return
 
         self.frame_thp = LabelFrame(self.frame_memory, text="Transparent Huge Page", background='#212121', foreground="white", labelanchor="n")
-        self.frame_thp.grid(pady=5, column=1, row=0, sticky="nsew", padx=5)
+        self.frame_thp.grid(pady=5, column=1, row=1, sticky="nsew", padx=5)
         self.modos = get_thp_modes("enabled")
         modo = get_thp_mode("enabled")
         ctk.CTkLabel(self.frame_thp, text="Transparent Huge Page mode").grid(row=0, column=0, padx=5, pady=5)
@@ -176,7 +176,7 @@ class memory:
         self.entry_vars = {}
         self.vm_widget = {}
         frame_vm_info = LabelFrame(self.frame_memory, text="VM info", background='#212121', foreground="white", labelanchor="n")
-        frame_vm_info.grid(column=0, row=1)
+        frame_vm_info.grid(column=0, row=1, rowspan=100)
         for info, local in zip(self.vm_info.keys(), range(len(self.vm_info))):
             if file_perm[info] == 33188:
                 ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ", justify="left").grid(padx=5, row=local, column=0)
@@ -192,34 +192,42 @@ class memory:
 
         ctk.CTkButton(frame_vm_info, text="Salvar alterações", command=self.set_memory_param).grid()
 
-    def rende_memory_bar(self):
-        def update_mem_info(): # código feito com preguiça
+    def update_mem_info(self): # código feito com preguiça
             mem_text = ["Disponível: ", "usado: "]
             aux = [1, 3]
             memory_info = psutil.virtual_memory()
             for i in range(2):
-                mem[i].configure(text=mem_text[i] + str(round(memory_info[aux[i]] / 1024 / 1024 / 1024, 1)) + "GB")
-            mem_bar.set(round(memory_info[2] / 100, 2))
-            mem_bar.after(1000, update_mem_info)
-        mem = list(range(2))
+                self.mem[i].configure(text=mem_text[i] + str(round(memory_info[aux[i]] / 1024 / 1024 / 1024, 1)) + "GB")
+            self.mem_bar.set(round(memory_info[2] / 100, 2))
+            self.task = self.mem_bar.after(1000, self.update_mem_info)
+
+    def rende_memory_bar(self):
+        self.mem = list(range(2))
         frame_mem = ctk.CTkFrame(self.frame_memory, width=350, height=100)
         frame_mem.grid(row=0, column=1, columnspan=6)
+        self.mem_ram_pc = psutil.virtual_memory()[0]
      #   ctk.CTkLabel(self.frame_memory, text="Memory RAM size: " + str(round(psutil.virtual_memory()[0] / 1024 / 1024 / 1024, 1)) + "GB").grid(row=0, column=3, columnspan=2, padx=0, pady=5, sticky="w")
-        ctk.CTkLabel(frame_mem, text="Memory RAM size: " + str(round(psutil.virtual_memory()[0] / 1024 / 1024 / 1024, 1)) + "GB").place(x=60, y=10)
+        ctk.CTkLabel(frame_mem, text="Memory RAM size: " + str(round(self.mem_ram_pc / 1024 / 1024 / 1024, 1)) + "GB").place(x=60, y=10)
         for i in range(2):
-            mem[i] = ctk.CTkLabel(frame_mem)
+            self.mem[i] = ctk.CTkLabel(frame_mem)
        # mem[0].grid(row=1, column=2, columnspan=2, padx=5, sticky="ew", pady=5)
        # mem[1].grid(row=1, column=4, columnspan=2, padx=5, sticky="ew", pady=5)
-        mem_bar = ctk.CTkProgressBar(frame_mem, orientation="horizontal", width=250, height=30)
+        self.mem_bar = ctk.CTkProgressBar(frame_mem, orientation="horizontal", width=250, height=30)
         #mem_bar.grid(row=2, column=3, rowspan=2, columnspan=6, sticky="ew", padx=5, pady=5)
-        mem_bar.place(x=10, y=60)
-        mem[0].place(x=20, y=30)
-        mem[1].place(x=160, y=30)
+        self.mem_bar.place(x=10, y=60)
+        self.mem[0].place(x=20, y=30)
+        self.mem[1].place(x=160, y=30)
 
-        update_mem_info()
+        self.update_mem_info()
+
+    def start_task(self):
+        self.update_mem_info()
+
+    def cancel_task(self):
+        self.mem_bar.after_cancel(self.task)
 
     def memory_system(self):
-        self.frame_memory = ctk.CTkScrollableFrame(self.menu, width=1280, height=380)
+        self.frame_memory = ctk.CTkScrollableFrame(self.menu, width=880, height=400)
         self.frame_memory.grid(column=0, row=3, columnspan=6, sticky="ew")
         self.rende_memory_bar()
 
@@ -319,7 +327,7 @@ class memory:
                 return ""
 
         self.frame_zswap = LabelFrame(self.frame_memory, text="Zswap", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zswap.grid(row=1, column=1, columnspan=6, pady=5, padx=5)
+        self.frame_zswap.grid(row=2, column=1, columnspan=6, pady=5, padx=5)
         zswap_feature_bool_name = ["Zswap state", "shrinker", "exclusive loads", "same filled pages", "non same filled pages"]
         zswap_feature_bool_folder =  ["enabled", "shrinker_enabled", "exclusive_loads", "same_filled_pages_enabled", "non_same_filled_pages_enabled"]
         zswap_state = list(range(5))
@@ -409,7 +417,7 @@ class memory:
                     return 0
 
             ctk.CTkLabel(self.frame_zram, text="Tamanho do zram:").grid(row=1, column=0)
-            zram_size = ctk.CTkSlider(self.frame_zram, from_=0, to=psutil.virtual_memory()[0] / 2)
+            zram_size = ctk.CTkSlider(self.frame_zram, from_=0, to=self.mem_ram_pc / 2)
             print(get_zram_size() / 1024 / 1024 / 1024)
             zram_size.set(get_zram_size())
             zram_size.bind('<Button-1>', change_slide_val)
@@ -420,7 +428,7 @@ class memory:
             ctk.CTkButton(self.frame_zram, text="Criar dispositivo Zram", command=set_zram_size).grid(row=2, column=0, columnspan=2, pady=5)
 
         self.frame_zram = LabelFrame(self.frame_memory, text="ZRAM", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zram.grid(row=2, column=1, padx=5, pady=5)
+        self.frame_zram.grid(row=3, column=1, padx=5, pady=5)
 
         zram_status = ctk.CTkLabel(self.frame_zram, text="Zram desabilitado")
         zram_status.grid(row=0, column=0, padx=5, pady=5)
@@ -444,7 +452,7 @@ class memory:
                     return fd.read().strip()
             except:
                 print("ejfv")
-        
+
         def set_hotplug_mem_status():
             try:
                 with open("/sys/module/memory_hotplug/parameters/auto_movable_numa_aware", "w") as fd:
@@ -481,19 +489,24 @@ class memory:
                 return 0
         
         def set_hotplug_ratio_status():
-            new_ratio = hotplug_ratio_slider.get()
+            ref_max_val = int((self.mem_ram_pc / 1024 / 1024) * 0.2)
             try:
+                new_ratio = int(hotplug_ratio_slider.get())
+                if new_ratio > ref_max_val:
+                    raise
                 with open("/sys/module/memory_hotplug/parameters/ratio", "w") as fd:
-                    fd.write(new_ratio)
-                    rotulo_hotplug_ratio.configure(text=str(new_ratio) + "MB")
+                    fd.write(str(new_ratio))
+                #    rotulo_hotplug_ratio.configure(text=str(new_ratio) + "MB")
             except:
+      #          rotulo_hotplug_ratio.configure(text=str(get_hotplug_ratio_status()) + "MB")
+                CTkMessagebox(title="valor invalido", message=f"só é permitido valores inteiros entre 0 e {ref_max_val}.")
                 print("ejfv")
 
-        def change_label_ratio(event):
-            rotulo_hotplug_ratio.configure(text=hotplug_ratio_slider.get())
+    #    def change_label_ratio(event):
+     #       rotulo_hotplug_ratio.configure(text=str(int(hotplug_ratio_slider.get())) + "MB")
 
         hotplug_ram_frame = LabelFrame(self.frame_memory, text="Hotplug Ram", background='#212121', foreground="white", labelanchor="n")
-        hotplug_ram_frame.grid(row=3, column=1, padx=5, pady=5)
+        hotplug_ram_frame.grid(row=5, column=1, padx=5, pady=5)
         ctk.CTkLabel(hotplug_ram_frame, text="O Hotplug Ram é um mecanismo que permite mudar os modulos fisicos de RAM mesmo que o sistema esteja em execução.", justify="center", wraplength=400).grid(padx=5, pady=5, row=0, column=0, columnspan=3)
         ctk.CTkLabel(hotplug_ram_frame, text="Hotplug Ram:").grid(row=1, column=0, padx=5, pady=5)
         hotplug_button = ctk.CTkSwitch(hotplug_ram_frame, text="off/on", command=set_hotplug_mem_status)
@@ -508,16 +521,110 @@ class memory:
 
         ratio_init = get_hotplug_ratio_status() * 0.20
         ctk.CTkLabel(hotplug_ram_frame, text="Memory ratio:").grid(row=3, column=0, padx=5, pady=5)
-        hotplug_ratio_slider = ctk.CTkSlider(hotplug_ram_frame, from_=0, to=psutil.virtual_memory()[0] * 0.20)
-        hotplug_ratio_slider.set(ratio_init)
-        hotplug_ratio_slider.bind("<B1-Motion>", change_label_ratio)
-        hotplug_ratio_slider.grid(row=3, column=1, pady=5)
-        rotulo_hotplug_ratio = ctk.CTkLabel(hotplug_ratio_slider, text=str(ratio_init) + "MB")
-        rotulo_hotplug_ratio.grid(row=3, column=2)
-        ctk.CTkButton(hotplug_ram_frame, text="save ratio val", command=set_hotplug_ratio_status).grid(row=4, column=0, columnspan=2)
+        hotplug_ratio_slider = ctk.CTkEntry(hotplug_ram_frame, placeholder_text=ratio_init)
+     #   hotplug_ratio_slider.set(ratio_init)
+       # hotplug_ratio_slider.bind("<B1-Motion>", change_label_ratio)
+      #  hotplug_ratio_slider.bind("<Button-1>", change_label_ratio)
+        hotplug_ratio_slider.grid(row=3, column=1, rowspan=2, pady=5)
+      #  rotulo_hotplug_ratio = ctk.CTkLabel(hotplug_ratio_slider, text=str(ratio_init) + "MB")
+       # rotulo_hotplug_ratio.grid(row=3, column=2)
+        ctk.CTkButton(hotplug_ram_frame, text="save ratio val", command=set_hotplug_ratio_status).grid(row=5, column=0, columnspan=2)
+
+    def rende_ksm(self):
+        if not path.exists("/sys/kernel/mm/ksm"):
+            return
+
+        def get_ksm_status():
+            try:
+                with open("/sys/kernel/mm/ksm/run", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+            
+        def set_ksm_status(choice):
+            try:
+                with open("/sys/kernel/mm/ksm/run", "w") as fd:
+                   # fd.write(ksm_button.get())
+                   fd.write(choice)
+            except:
+                print("error ksm")
+                return "0"
+
+        def get_ksm_max_cpu_usage():
+            try:
+                with open("/sys/kernel/mm/ksm/adivsor_max_cpu", "r") as fd:
+                    return int(fd.read().strip())
+            except:
+                return 0
+            
+        def set_ksm_max_cpu_usage():
+            try:
+                with open("/sys/kernel/mm/ksm/adivsor_max_cpu", "w") as fd:
+                    fd.write(str(ksm_cpu_usage_slider.get()))
+            except:
+                return 0
+
+        def get_zero_page_status():
+            try:
+                with open("/sys/kernel/mm/ksm/use_zero_pages", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+            
+        def set_zero_page():
+            try:
+                with open("/sys/kernel/mm/ksm/use_zero_pages", "w") as fd:
+                    fd.write(ksm_zero_page.get())
+            except:
+                return "0"
+
+        def get_param_ksm(folder):
+            try:
+                with open(f"/sys/kernel/mm/ksm/{folder}", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+
+        def set_param_ksm(folder, value):
+            try:
+                value_int = int(value)
+                with open(f"/sys/kernel/mm/ksm/{folder}", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+
+        # tratamento futuro para pages to scan, smart scan?
+        entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "adivsor_max_pages_to_scan"]
+        entry_names = ["Pages to scan", "sleep millisecs", "Check pages metadata", "Target scan time", "Min pages to scan", "Max pages to scan"]
+
+        ksm_status_var = ctk.StringVar(value=get_ksm_status())
+        ksm_frame = LabelFrame(self.frame_memory, text="KSM", background='#212121', foreground="white", labelanchor="n")
+        ksm_frame.grid(row=4, column=1, padx=5, pady=5)
+        ctk.CTkLabel(ksm_frame, text="KSM: ").grid(row=0, column=0, padx=5, pady=5)
+        ksm_button = ctk.CTkComboBox(ksm_frame, values=["0", "1", "2"], command=set_ksm_status, variable=ksm_status_var)
+        #ksm_button.set(get_ksm_status())
+        ksm_button.grid(row=0, column=1, pady=5)
+        ctk.CTkLabel(ksm_frame, text="KSM cpu usage:").grid(row=1, column=0)
+        ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90, set=get_ksm_max_cpu_usage)
+        ksm_cpu_usage_slider.grid(row=1, column=1)
+        ctk.CTkButton(ksm_frame, text="Alterar", command=set_ksm_max_cpu_usage).grid(row=1, column=2)
+
+        ctk.CTkLabel(ksm_frame, text="Use zero page:").grid(row=2, column=0)
+        ksm_zero_page = ctk.CTkSwitch(ksm_frame, text="off/on", command=set_zero_page)
+        if get_zero_page_status() == "1":
+            ksm_zero_page.select()
+        ksm_cpu_usage_slider.grid(row=2, column=1)
+
+        entry_param = list(range(6))
+        for label, folder, index in zip(entry_names, entry_params, range(6)):
+            ctk.CTkLabel(ksm_frame, text=label).grid(column=0)
+            entry_param[index] = ctk.CTkEntry(ksm_frame, placeholder_text=lambda: get_param_ksm(folder))
+            entry_param[index].grid(column=1)
+            ctk.CTkButton(ksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_ksm(folder, entry_param[i].get())).grid(column=1, columnspan=2)
 
     def rende_memory(self, menu):
-        self.get_vm_info()
+        self.task = None
+      #  self.get_vm_info()
         self.menu = menu
         self.error = event_error.io_error()
         self.memory_system()
@@ -525,4 +632,5 @@ class memory:
         self.rende_thp()
         self.rende_zswap()
         self.rende_zram()
+        self.rende_ksm()
         self.memory_hotplug()
