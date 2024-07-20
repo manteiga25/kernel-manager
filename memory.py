@@ -570,7 +570,7 @@ class memory:
                     return fd.read().strip()
             except:
                 return "0"
-            
+
         def set_zero_page():
             try:
                 with open("/sys/kernel/mm/ksm/use_zero_pages", "w") as fd:
@@ -587,10 +587,11 @@ class memory:
 
         def set_param_ksm(folder, value):
             try:
-                value_int = int(value)
-                with open(f"/sys/kernel/mm/ksm/{folder}", "r") as fd:
-                    return fd.read().strip()
-            except:
+                if not value.isdigit():
+                    raise ValueError("The parameter has been integer not string")
+                with open(f"/sys/kernel/mm/ksm/{folder}", "w") as fd:
+                    fd.write(value)
+            except Exception as e:
                 return "0"
 
         # tratamento futuro para pages to scan, smart scan?
@@ -622,6 +623,99 @@ class memory:
             entry_param[index].grid(column=1)
             ctk.CTkButton(ksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_ksm(folder, entry_param[i].get())).grid(column=1, columnspan=2)
 
+    def rende_uksm(self):
+        if not path.exists("/sys/kernel/mm/uksm"):
+            return
+
+        def get_uksm_status():
+            try:
+                with open("/sys/kernel/mm/uksm/run", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+                
+        def set_uksm_status(choice):
+            try:
+                with open("/sys/kernel/mm/uksm/run", "w") as fd:
+                # fd.write(ksm_button.get())
+                    fd.write(choice)
+            except:
+                print("error uksm")
+                return "0"
+
+        def get_uksm_max_cpu_usage():
+            try:
+                with open("/sys/kernel/mm/uksm/adivsor_max_cpu", "r") as fd:
+                    return int(fd.read().strip())
+            except:
+                return 0
+                
+        def set_uksm_max_cpu_usage():
+            try:
+                with open("/sys/kernel/mm/uksm/adivsor_max_cpu", "w") as fd:
+                    fd.write(str(uksm_cpu_usage_slider.get()))
+            except:
+                return 0
+
+        def get_zero_page_status():
+            try:
+                with open("/sys/kernel/mm/uksm/use_zero_pages", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+                
+        def set_zero_page():
+            try:
+                with open("/sys/kernel/mm/uksm/use_zero_pages", "w") as fd:
+                    fd.write(ksm_zero_page.get())
+            except:
+                return "0"
+
+        def get_param_uksm(folder):
+            try:
+                with open(f"/sys/kernel/mm/uksm/{folder}", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+
+        def set_param_uksm(folder, value):
+            try:
+                if not value.isdigit():
+                    raise ValueError("The parameter has been integer not string")
+                with open(f"/sys/kernel/mm/uksm/{folder}", "w") as fd:
+                    fd.write(value)
+            except Exception as e:
+                return "0"
+
+        # tratamento futuro para pages to scan, smart scan?
+        entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "adivsor_max_pages_to_scan"]
+        entry_names = ["Pages to scan", "sleep millisecs", "Check pages metadata", "Target scan time", "Min pages to scan", "Max pages to scan"]
+
+        uksm_status_var = ctk.StringVar(value=get_uksm_status())
+        uksm_frame = LabelFrame(self.frame_memory, text="UKSM", background='#212121', foreground="white", labelanchor="n")
+        uksm_frame.grid(row=5, column=1, padx=5, pady=5)
+        ctk.CTkLabel(uksm_frame, text="UKSM: ").grid(row=0, column=0, padx=5, pady=5)
+        uksm_button = ctk.CTkComboBox(uksm_frame, values=["0", "1", "2"], command=set_uksm_status, variable=uksm_status_var)
+        #uksm_button.set(get_ksm_status())
+        uksm_button.grid(row=0, column=1, pady=5)
+        ctk.CTkLabel(uksm_frame, text="UKSM cpu usage:").grid(row=1, column=0)
+        uksm_cpu_usage_slider = ctk.CTkSlider(uksm_frame, from_=0, to=90, set=get_uksm_max_cpu_usage)
+        uksm_cpu_usage_slider.grid(row=1, column=1)
+        ctk.CTkButton(uksm_frame, text="Alterar", command=set_uksm_max_cpu_usage).grid(row=1, column=2)
+
+        ctk.CTkLabel(uksm_frame, text="Use zero page:").grid(row=2, column=0)
+        uksm_zero_page = ctk.CTkSwitch(uksm_frame, text="off/on", command=set_zero_page)
+        if get_zero_page_status() == "1":
+            uksm_zero_page.select()
+        uksm_cpu_usage_slider.grid(row=2, column=1)
+
+        entry_param = list(range(6))
+        for label, folder, index in zip(entry_names, entry_params, range(6)):
+            ctk.CTkLabel(uksm_frame, text=label).grid(column=0)
+            entry_param[index] = ctk.CTkEntry(uksm_frame, placeholder_text=lambda: get_param_uksm(folder))
+            entry_param[index].grid(column=1)
+            ctk.CTkButton(uksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_uksm(folder, entry_param[i].get())).grid(column=1, columnspan=2)
+
     def rende_memory(self, menu):
         self.task = None
       #  self.get_vm_info()
@@ -633,4 +727,5 @@ class memory:
         self.rende_zswap()
         self.rende_zram()
         self.rende_ksm()
+        self.rende_uksm()
         self.memory_hotplug()
