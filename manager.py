@@ -44,30 +44,7 @@ def get_cpu_microcode():
 
     return ret
 
-def get_system_info():
-    info = {}
 
-    folders = ["board_name", "board_vendor", "board_version", "bios_vendor", "bios_version", "bios_date", "board_asset_tag"]
-    keys = ["Board Name", "Board Vendor", "BIOS Vendor", "BIOS Version", "BIOS Date", "Board_asset_tag"]
-    bin_folders = ["board_serial", "product_serial", "product_uuid"]
-    bin_keys = ["Board serial", "Product serial", "Product uuid"]
-    
-    for folder, key in zip(folders, keys):
-        try:
-            with open(f'/sys/class/dmi/id/{folder}', "r") as f:
-                info[key] = f.read().strip()
-        except:
-            info[key] = "Unknown"
-
-    for folder, key in zip(bin_folders, bin_keys):
-        try:
-            with open(f'/sys/class/dmi/id/{folder}', "rb") as f:
-                info[key] = f.read().strip().decode("ascii")
-            #info[key] = info[key].decode("ascii")
-        except:
-            info[key] = "Unknown"
-
-    return info
 
 def get_cpu_endian():
     try:
@@ -83,12 +60,13 @@ def get_cpu_erratas():
         print(folders)
         for folder in folders:
             with open("/sys/devices/system/cpu/vulnerabilities/" + folder, "r") as errata_fd:
-                info[folder] = errata_fd.read().strip()
+                cpu_errata_val = errata_fd.read().strip()
+                if cpu_errata_val == "Not affected":
+                    continue
+                info[folder] = cpu_errata_val
     except:
         pass
     return info
-
-
 
 class janela_prin:
 
@@ -128,11 +106,9 @@ class janela_prin:
     def frame_cpu_info(self):
 
         def rende_microcode():
-            microcode_frame = LabelFrame(self.frame_cpu_brand, text="CPU Microcode", background='#212121', foreground="white")
-            microcode_frame.pack(padx=5, pady=5)
             microcode_info = get_cpu_microcode()
             for micro_info in microcode_info:
-                ctk.CTkLabel(microcode_frame, text=micro_info).pack(padx=5, pady=5, anchor="w")
+                ctk.CTkLabel(self.frame_cpu_brand, text=micro_info).pack(padx=5, pady=5, anchor="w")
 
         def rende_cache_system():
             def rende_cache_perf_core():
@@ -250,6 +226,7 @@ class janela_prin:
         for info, hash_cpu in zip(titulo_cpu_rotulos2, cpu_hash2):
             ctk.CTkLabel(self.frame_cpu_brand, text=info + str(self.cpu_info[hash_cpu])).pack(anchor="w", padx=5, pady=5)
         ctk.CTkLabel(self.frame_cpu_brand, text="CPU endian: " + get_cpu_endian()).pack(anchor="w", padx=5, pady=5)
+        rende_microcode()
         self.cpu_errata_frame = LabelFrame(self.frame_cpu, text="CPU bugs (Errata)", background='#212121', foreground="white")
         self.cpu_errata_frame.grid(padx=5, pady=5, column=1, row=2)
         #ctk.CTkLabel(self.cpu_errata_frame, text="jkdhfreh").pack(padx=5, pady=5)
@@ -257,7 +234,6 @@ class janela_prin:
         for errata in cpu_errata.keys():
             ctk.CTkLabel(self.cpu_errata_frame, text=errata.replace("_", " ") + ": " + cpu_errata[errata], wraplength=300, justify="left").pack(anchor="w", padx=5, pady=5)
         ctk.CTkLabel(self.frame_cpu_brand, text="ISA: " + isa, wraplength=400, justify="left").pack(anchor="w", padx=5, pady=5)
-        rende_microcode()
 
     def update_cpu_util(self):
             cpu_util = psutil.cpu_percent(interval=None, percpu=True)
@@ -383,17 +359,9 @@ class janela_prin:
             return "eficiency"
 
 
-    def rende_placa_mae_info(self):
-        info = get_system_info()
-        frame_mother_board = LabelFrame(self.frame_cpu, text="Motherboard info", background='#212121', foreground="white")
-        frame_mother_board.grid(padx=5, pady=5, row=3, column=0)
-        for key in info.keys():
-            ctk.CTkLabel(frame_mother_board, text=key + ": " + info[key]).pack(anchor="w", padx=5)
-
-
     def rende_cpu_info(self):
          self.frame_cpu_info()
-         self.rende_placa_mae_info()
+      #   self.rende_placa_mae_info()
      #    self.frame_core_info()
 
     def __init__(self) -> None:
@@ -412,7 +380,7 @@ class janela_prin:
 
     def inicialize_objects(self):
         self.error = event_error.io_error()
-        self.system_module = system.system
+        self.system_module = system.system()
         self.cpufreq_module = cpufreq.cpu_freq()
         self.cpuidle_module = cpuidle.cpu_idle()
         self.memory_module = memory.memory()
@@ -420,7 +388,7 @@ class janela_prin:
         self.battery_module = battery.battery()
 
     def inicialize_pages(self):
-        self.system_module.rende_system_info(self.cpu_system_tab)
+        self.system_module.rende_system_info(menu=self.cpu_system_tab)
         self.cpufreq_module.rende_cpu_freq(menu=self.cpu_freq_tab, num_cores=self.thread_num)
         self.cpuidle_module.rende_cpu_idle(menu=self.cpu_idle_tab)
         self.memory_module.rende_memory(menu=self.cpu_menu_tab)
@@ -454,6 +422,8 @@ class janela_prin:
             self.memory_module.cancel_task()
         elif self.frame_anterior == "CPU info":
             self.cancel_task()
+        elif self.frame_anterior == "Battery":
+            self.battery_module.cancel_task()
         
         if self.frame_atual == "CPU frequency":
             self.cpufreq_module.start_task()
@@ -461,6 +431,8 @@ class janela_prin:
             self.memory_module.start_task()
         elif self.frame_atual == "CPU info":
             self.memory_module.start_task()
+        elif self.frame_atual == "Battery":
+            self.battery_module.start_task()
 
 
         self.frame_anterior = self.frame_atual
@@ -474,7 +446,7 @@ class janela_prin:
     def init_menu(self):
        # self.menu = ctk.CTkTabview(master=self.janela, command=self.mudar_pagina)
         self.menu = ctk.CTkTabview(master=self.janela, command=self.verify_page)
-        self.menu.pack(padx=5)
+        self.menu.pack(padx=5, expand=True, fill="both")
         self.cpu_info_tab = self.menu.add("CPU info")  # add tab at the end
         self.cpu_system_tab = self.menu.add("System info")  # add tab at the end
         self.cpu_freq_tab = self.menu.add("CPU frequency")  # add tab at the end
