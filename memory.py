@@ -5,8 +5,13 @@ from platform import uname
 from os import listdir, stat, path, system
 from tkinter import LabelFrame
 from CTkMessagebox import CTkMessagebox
+from time import sleep
 
 class memory:
+
+    def verify_value_is_num(self, value: str):
+        if not value.isdigit():
+            raise ValueError("The value needs to be integer not string")
 
     def rende_thp(self):
 
@@ -85,7 +90,7 @@ class memory:
                 folders = ""
                 folders_num = 0
             print(folders)
-            for folder, index in zip(folders, range(3, folders_num+1)):
+            for folder, index in zip(folders, range(4, folders_num+2)):
                 #print(index)
                 if path.isdir("/sys/kernel/mm/transparent_hugepage/" + folder):
                   #  print(folder)
@@ -95,7 +100,7 @@ class memory:
                             print("opened " + folder)
                             estado = huge_fd.read().strip()
                             ctk.CTkLabel(self.frame_thp, text=folder).grid(row=index, column=0)
-                            huge_page[folder] = ctk.CTkComboBox(self.frame_thp, values=self.modos)
+                            huge_page[folder] = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly")
                             mode = get_thp_mode(folder)
                             huge_page[folder].set(mode)
                             huge_page_ok[folder] = ctk.CTkButton(self.frame_thp, text="Alterar", command=lambda f=folder: set_thp(f))
@@ -104,30 +109,105 @@ class memory:
                     except:
                         print("erro " + folder)
 
+        def get_thp_zero_page():
+            try:
+                with open("/sys/kernel/mm/transparent_hugepage/use_zero_page", "r") as fd:
+                    return fd.read().strip()
+            except:
+                print("dhbfuwegbfuwedfywefyheyuweyugwefegbfebfqegfwqg")
+                return "0"
+
+        def set_thp_zero_page(mode_zero_page):
+            try:
+                with open("/sys/kernel/mm/transparent_hugepage/use_zero_page", "w") as fd:
+                    fd.write(str(mode_zero_page))
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+
+        def rende_khugepaged():
+            def get_kthp_defrag():
+                try:
+                    with open("/sys/kernel/mm/transparent_hugepage/khugepaged/defrag", "r") as fd:
+                        return fd.read().strip()
+                except:
+                    print("dhbfuwegbfuwedfywefyheyuweyugwefegbfebfqegfwqg")
+                    return "0"
+
+            def set_kthp_defrag(mode):
+                try:
+                    with open("/sys/kernel/mm/transparent_hugepage/khugepaged/defrag", "w") as fd:
+                        fd.write(str(mode))
+                except Exception as e:
+                    CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+
+            def get_khuge_info(folder):
+                try:
+                    with open(f"/sys/kernel/mm/transparent_hugepage/khugepaged/{folder}", "r") as fd:
+                        return fd.read().strip()
+                except:
+                    print("dhbfuwegbfuwedfywefyheyuweyugwefegbfebfqegfwqg")
+                    return "0"
+            
+            def set_kthp_info(mode, folder):
+                try:
+                    self.verify_value_is_num()
+                    with open(f"/sys/kernel/mm/transparent_hugepage/khugepaged/{folder}", "w") as fd:
+                        fd.write(str(mode))
+                except ValueError as e:
+                    CTkMessagebox(title="value invalid", message=str(e), icon="cancel")
+                except Exception as e:
+                    CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+
+            frame_khugepaged = LabelFrame(self.frame_memory, text="Khugepaged", background='#212121', foreground="white", labelanchor="n")
+            frame_khugepaged.grid(pady=5, column=1, row=2, sticky="nsew", padx=5)
+            folders = ["alloc_sleep_millisecs", "scan_sleep_millisecs", "pages_to_scan"]
+            entry_khuge = list(range(3))
+
+            ctk.CTkLabel(frame_khugepaged, text="Defrag").grid(row=0, column=0, padx=5, pady=5)
+            modo_kthp_defrag = ctk.CTkSwitch(frame_khugepaged, text="Off/On", command=lambda: set_kthp_defrag(modo_kthp_defrag.get()))
+            if get_kthp_defrag() == "1":
+                modo_kthp_defrag.select()
+            modo_kthp_defrag.grid(row=0, column=1, padx=5, pady=5)
+
+            for folder, row in zip(folders, range(1, 3)):
+                ctk.CTkLabel(frame_khugepaged, text=folder.replace("_", " ") + ":").grid(row=row, column=0, padx=5, pady=5)
+                entry_khuge[row-1] = ctk.CTkEntry(frame_khugepaged, placeholder_text=get_khuge_info(folder))
+                entry_khuge[row-1].grid(row=row, column=1, padx=5, pady=5)
+                ctk.CTkButton(frame_khugepaged, text="Aplicar alteração", command=lambda f=folder, r=row-1: set_kthp_info(entry_khuge[r].get(), folder)).grid(row=row, column=2, padx=5, pady=5)
+
         if not path.exists("/sys/kernel/mm/transparent_hugepage"):
             return
+
+        rende_khugepaged()
 
         self.frame_thp = LabelFrame(self.frame_memory, text="Transparent Huge Page", background='#212121', foreground="white", labelanchor="n")
         self.frame_thp.grid(pady=5, column=1, row=1, sticky="nsew", padx=5)
         self.modos = get_thp_modes("enabled")
         modo = get_thp_mode("enabled")
         ctk.CTkLabel(self.frame_thp, text="Transparent Huge Page mode").grid(row=0, column=0, padx=5, pady=5)
-        modo_thp = ctk.CTkComboBox(self.frame_thp, values=self.modos)
+        modo_thp = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly")
         modo_thp.set(modo)
         modo_thp.grid(row=0, column=1, padx=5, pady=5)
         ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_mode).grid(row=0, column=2, padx=5, pady=5)
 
         ctk.CTkLabel(self.frame_thp, text="Defrag").grid(row=1, column=0, padx=5, pady=5)
-        modo_thp_defrag = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("defrag"))
+        modo_thp_defrag = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("defrag"), state="readonly")
         modo_thp_defrag.set(get_thp_mode("defrag"))
         modo_thp_defrag.grid(row=1, column=1, padx=5, pady=5)
         ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_defrag_mode).grid(row=1, column=2, padx=5, pady=5)
 
         ctk.CTkLabel(self.frame_thp, text="Shared mem").grid(row=2, column=0, padx=5, pady=5)
-        modo_thp_shm = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("shmem_enabled"))
+        modo_thp_shm = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("shmem_enabled"), state="readonly")
         modo_thp_shm.set(get_thp_mode("shmem_enabled"))
         modo_thp_shm.grid(row=2, column=1, padx=5, pady=5)
         ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_shm_mode).grid(row=2, column=2, padx=5, pady=5)
+        
+        ctk.CTkLabel(self.frame_thp, text="Zero page").grid(row=3, column=0, padx=5, pady=5)
+        modo_thp_zero_page = ctk.CTkSwitch(self.frame_thp, text="Off/On", command=lambda: set_thp_zero_page(modo_thp_zero_page.get()))
+        if get_thp_zero_page() == "1":
+            modo_thp_zero_page.select()
+        modo_thp_zero_page.grid(row=3, column=1, padx=5, pady=5)
+
         get_thp_info()
 
     def get_vm_info(self):
@@ -157,17 +237,22 @@ class memory:
                 with open("/proc/sys/vm/" + folder, "w") as f:
                     print(folder, "change to, ", value)
                     f.write(value)
-            except:
-                self.error.escreve_erro(f"Error to set memory {folder}", str(Exception))
+            except Exception as e:
+                self.error.escreve_erro(f"Error to set memory {folder}", str(e))
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
     def set_memory_param(self):
         change = {}
-        for var, key in zip(self.entry_vars.keys(), self.vm_info.keys()):
-            print(f"{str(var)} {self.vm_info[var]} != {self.entry_vars[var].get()}")
-            tmp = self.entry_vars[var].get() # increase cache hit and less instruction executing
-            if self.vm_info[var] != tmp:
-            #    self.set_memory_info(var)
-                change[var] = tmp
+        try:
+            for var, key in zip(self.entry_vars.keys(), self.vm_info.keys()):
+                print(f"{str(var)} {self.vm_info[var]} != {self.entry_vars[var].get()}")
+                tmp = self.entry_vars[var].get() # increase cache hit and less instruction executing
+                self.verify_value_is_num(tmp)
+                if self.vm_info[var] != tmp:
+                #    self.set_memory_info(var)
+                    change[var] = tmp
+        except ValueError as e:
+            CTkMessagebox(title="value invalid", message=str(e), icon="cancel")
         if change:
             self.set_memory_info(change)
 
@@ -185,7 +270,8 @@ class memory:
                 self.entry_vars[info] = self.entry_var
                 #self.entry_vars[info] = vm_info[info]
                 #ctk.CTkEntry(frame_vm_info, placeholder_text=vm_info[info], justify="left").grid(padx=5, row=local, column=1)
-                self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, placeholder_text=self.vm_info[info], justify="left").grid(padx=5, pady=5, row=local, column=1)
+              #  self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, placeholder_text=self.vm_info[info], justify="left").grid(padx=5, pady=5, row=local, column=1)
+                self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, justify="left").grid(padx=5, pady=5, row=local, column=1)
             else:
                 ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ").grid(padx=5, pady=5, row=local, column=0)
                 ctk.CTkLabel(frame_vm_info, text=self.vm_info[info] + " (read-only)").grid(padx=5, pady=5, row=local, column=1, sticky="w")
@@ -227,25 +313,58 @@ class memory:
         self.mem_bar.after_cancel(self.task)
 
     def memory_system(self):
-        self.frame_memory = ctk.CTkScrollableFrame(self.menu, width=880, height=400)
+        self.frame_memory = ctk.CTkScrollableFrame(self.menu, width=1080, height=800)
         self.frame_memory.grid(column=0, row=3, columnspan=6, sticky="ew")
         self.rende_memory_bar()
 
+    def rende_hugepage_1gb(self):
+        def get_1gb_huge(folder):
+            try:
+                with open(f"/sys/kernel/mm/hugepages/hugepages-1048576kB/{folder}", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "0"
+
+        def set_1gb_huge(folder, idx):
+            value = entry_hp[idx].get()
+            try:
+                self.verify_value_is_num(value)
+                with open(f"/sys/kernel/mm/hugepages/hugepages-1048576kB/{folder}", "w") as fd:
+                    fd.write(value)
+            except ValueError as e:
+                CTkMessagebox(title="value invalid", message=str(e), icon="cancel")
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+
+        if round(self.mem_ram_pc / 1024 / 1024 / 1024, 1) < 30.0:
+            return
+
+        hugepage_1bg = LabelFrame(self.frame_memory, text="Hugepage 1gb", background='#212121', foreground="white", labelanchor="n")
+        hugepage_1bg.grid(row=3, column=1, padx=5, pady=5)
+        folders = ["nr_hugepages", "nr_overcommit_hugepages"]
+        labels = ["Nr hugepages 1gb:", "overcommit_hugepages:"]
+        entry_hp = list(range(2))
+
+        for folder, label, row in zip(folders, labels, range(2)):
+            ctk.CTkLabel(hugepage_1bg, text=label).grid(row=row, column=0, padx=5, pady=5)
+            entry_hp[row] = ctk.CTkEntry(hugepage_1bg, placeholder_text=get_1gb_huge(folder))
+            entry_hp[row].grid(row=row, column=1, padx=5, pady=5)
+            ctk.CTkButton(hugepage_1bg, text="Aplicar alteração", command=lambda f=folder, index=row: set_1gb_huge(f, index)).grid(row=row, column=2, padx=5, pady=5)
+
     def rende_zswap(self):
         if not path.exists("/sys/module/zswap"):
-            pass
+            return
         
-        def switch_zswap(folder):
+        def switch_zswap(folder, index):
             state = "N"
-            if zswap_state.get():
+            if zswap_state[index].get():
                 state = "Y"
             print(state)
             try:
                 with open(f"/sys/module/zswap/parameters/{folder}", "w") as f:
                     f.write(state)
-            except:
-                print("err")
-                return
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_zswap_state(folder):
             try:
@@ -266,13 +385,12 @@ class memory:
 
         def switch_pool_value(event):
             value = str(int(float(pool.get()) * 100))
-          #  try:
-            with open("/sys/module/zswap/parameters/max_pool_percent", "w") as f:
-                f.write(value)
-            pool_perc.configure(text=value + "%")
-    #        except:
-     #           print("err")
-      #          return 0
+            try:
+                with open("/sys/module/zswap/parameters/max_pool_percent", "w") as f:
+                    f.write(value)
+                pool_perc.configure(text=value + "%")
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_thre_perc():
             try:
@@ -284,13 +402,12 @@ class memory:
 
         def switch_thre_value(event):
             value = str(int(float(threshold.get()) * 100))
-          #  try:
-            with open("/sys/module/zswap/parameters/accept_threshold_percent", "w") as f:
-                f.write(value)
-            threshold_perc.configure(text=value + "%")
-    #        except:
-     #           print("err")
-      #          return 0
+            try:
+                with open("/sys/module/zswap/parameters/accept_threshold_percent", "w") as f:
+                    f.write(value)
+                threshold_perc.configure(text=value + "%")
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_zswap_compressor():
             try:
@@ -305,9 +422,8 @@ class memory:
                 algoritmo = algoritmo_zswap.get()
                 with open("/sys/module/zswap/parameters/compressor", "w") as f:
                     f.write(algoritmo)
-            except:
-                print("err")
-                return ""
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
             
         def get_zpool_compressor():
             try:
@@ -322,23 +438,22 @@ class memory:
                 algoritmo = algoritmo_zpool.get()
                 with open("/sys/module/zswap/parameters/zpool", "w") as f:
                     f.write(algoritmo)
-            except:
-                print("err")
-                return ""
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         self.frame_zswap = LabelFrame(self.frame_memory, text="Zswap", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zswap.grid(row=2, column=1, columnspan=6, pady=5, padx=5)
+        self.frame_zswap.grid(row=4, column=1, columnspan=6, pady=5, padx=5)
         zswap_feature_bool_name = ["Zswap state", "shrinker", "exclusive loads", "same filled pages", "non same filled pages"]
         zswap_feature_bool_folder =  ["enabled", "shrinker_enabled", "exclusive_loads", "same_filled_pages_enabled", "non_same_filled_pages_enabled"]
         zswap_state = list(range(5))
         for name_index in range(5):
             ctk.CTkLabel(self.frame_zswap, text=zswap_feature_bool_name[name_index]).grid(row=name_index, column=0, pady=5)
-            zswap_state[name_index] = ctk.CTkSwitch(self.frame_zswap, text="Off/On", onvalue=1, offvalue=0, command=lambda: switch_zswap(zswap_feature_bool_folder[name_index]))
-            if get_zswap_state(zswap_feature_bool_folder[name_index]):
+            zswap_state[name_index] = ctk.CTkSwitch(self.frame_zswap, text="Off/On", onvalue=1, offvalue=0, command=lambda index=name_index: switch_zswap(zswap_feature_bool_folder[index], index))
+            if get_zswap_state(zswap_feature_bool_folder[name_index]) == "Y":
                 zswap_state[name_index].select()
             else:
                 zswap_state[name_index].deselect()
-            zswap_state[name_index].grid(row=name_index, column=1, pady=5)
+            zswap_state[name_index].grid(row=name_index, column=1, pady=5, padx=5)
         ctk.CTkLabel(self.frame_zswap, text="Zpool percent").grid(row=5, column=0)
         pool = ctk.CTkSlider(self.frame_zswap, from_=0, to=1)
         pool_percent = get_pool_perc()
@@ -362,20 +477,20 @@ class memory:
         threshold_perc.grid(row=6, column=2)
 
         ctk.CTkLabel(self.frame_zswap, text="Zswap alghoritm").grid(row=7, column=0, padx=0, pady=5)
-        algoritmo_zswap = ctk.CTkComboBox(self.frame_zswap, values=["lz4", "lz4hc", "lzo", "lzo-rle", "zstd", "deflate", "842"])
+        algoritmo_zswap = ctk.CTkComboBox(self.frame_zswap, values=["lz4", "lz4hc", "lzo", "lzo-rle", "zstd", "deflate", "842"], state="readonly")
         algoritmo_zswap.set(get_zswap_compressor())
         algoritmo_zswap.grid(row=7, column=1)
         ctk.CTkButton(self.frame_zswap, text="Alterar", command=set_zswap_algorithm).grid(row=7, column=2)
 
         ctk.CTkLabel(self.frame_zswap, text="Zpool alghoritm").grid(row=8, column=0, padx=0, pady=5)
-        algoritmo_zpool = ctk.CTkComboBox(self.frame_zswap, values=["zbud", "z3fold", "zsmalloc"])
+        algoritmo_zpool = ctk.CTkComboBox(self.frame_zswap, values=["zbud", "z3fold", "zsmalloc"], state="readonly")
         algoritmo_zpool.set(get_zpool_compressor())
         algoritmo_zpool.grid(row=8, column=1)
         ctk.CTkButton(self.frame_zswap, text="Alterar", command=set_zpool_algorithm).grid(row=8, column=2)
 
     def rende_zram(self):
         if not path.exists(f"/lib/modules/{uname().release}/kernel/drivers/block/zram"):
-            pass
+            return
 
         def switch_zram():
             if zram_button.get():
@@ -384,13 +499,28 @@ class memory:
                 zram_status.configure(text="Zram habilitado")
                 create_zram()
             else:
-                #system("sudo swapoff /dev/zram0")
+                self.zram_used = False
+                system("sudo swapoff /dev/zram0")
                 system("sudo echo 1 > /sys/block/zram0/reset")
                 system("sudo rmmod zram")
                 zram_button.configure(text="Ativar zram")
                 zram_status.configure(text="Zram desabilitado")
 
         def create_zram():
+
+            def get_zram_algorithm():
+                try:
+                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                        return fd.read().strip()
+                except:
+                    return "err"
+
+            def set_zram_algorithm(value):
+                try:
+                    with open("/sys/block/zram0/comp_algorithm", "w") as fd:
+                        fd.write(value)
+                except:
+                    pass
 
             def change_slide_val(event):
                 zram_s.configure(text=str(round(zram_size.get() / 1024 / 1024 / 1024, 1)) + " GB")
@@ -399,14 +529,51 @@ class memory:
                 zram_nsize = zram_size.get()
                 print(round(zram_nsize / 1024 / 1024 / 1024, 1), " GB")
                 try:
-                    system("sudo echo 1 > /sys/block/zram0/reset")
+                    if self.zram_used:
+                        print("jsfbvhebirb")
+                        system("swapoff /dev/zram0")
+                        system("mkswap -U clear /dev/zram0")
+                        system("sudo echo 1 > /sys/block/zram0/reset")
+                  #  system("swapoff dev/ram0")
+                   # sleep(5)
+                   # system("mkswap -U clear /dev/zram0")
+                    #sleep(5)
+                   # system("sudo echo 1 > /sys/block/zram0/reset")
+                    #sleep(5)
                     with open("/sys/block/zram0/disksize", "w") as f:
                         f.write(str(zram_nsize))
+                    system("mkswap -U clear /dev/zram0")
+                    system("swapon --priority 100 /dev/zram0")
                 except:
                     zram_val = get_zram_size()
                     zram_s.configure(text=str(round(zram_val / 1024 / 1024 / 1024, 1)) + " GB")
                     zram_size.set(zram_val)
                     CTkMessagebox(title="Dispositivo ocupado", message="Não foi possivel aplicar parametro ao dispositivo Zram,\n Zram ocupado", icon="cancel")
+
+            def get_zram_algorithms():
+                try:
+                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                        algorithms = fd.read().strip()
+                        algorithms = algorithms.replace("[", '')
+                        algorithms = algorithms.replace("]", '')
+                        algorithms_list = algorithms.split()
+                        return algorithms_list
+                except:
+                    return "err"
+
+            def get_zram_algorithm():
+                try:
+                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                        algorithms = fd.read().strip()
+                        algorithms = algorithms.split()
+                        print(algorithms)
+                        default_algorithm = [algorithm for algorithm in algorithms if not algorithm.find("[")]
+                        print("euihrhtue", default_algorithm)
+                        default_algorithm = default_algorithm[0].replace("[", "")
+                        default_algorithm = default_algorithm.replace("]", "")
+                        return default_algorithm
+                except:
+                    return "err"
 
             def get_zram_size():
                 try:
@@ -416,25 +583,50 @@ class memory:
                     print("e")
                     return 0
 
-            ctk.CTkLabel(self.frame_zram, text="Tamanho do zram:").grid(row=1, column=0)
+            def get_zram_max_comp():
+                try:
+                    with open("/sys/block/zram0/max_comp_streams", "r") as fd:
+                        return fd.read().strip()
+                except:
+                    return "err"
+            
+            def set_zram_max_comp():
+                try:
+                    with open("/sys/block/zram0/max_comp_streams", "w") as fd:
+                        fd.write(zram_max_comp_entry.get())
+                except:
+                    return "err"
+
+            ctk.CTkLabel(self.frame_zram, text="Tamanho do zram:").grid(row=1, column=0, padx=5, pady=5)
             zram_size = ctk.CTkSlider(self.frame_zram, from_=0, to=self.mem_ram_pc / 2)
             print(get_zram_size() / 1024 / 1024 / 1024)
             zram_size.set(get_zram_size())
             zram_size.bind('<Button-1>', change_slide_val)
             zram_size.bind("<B1-Motion>", change_slide_val)
-            zram_size.grid(row=1, column=1, padx=5)
-            zram_s = ctk.CTkLabel(self.frame_zram, text=str(round(get_zram_size() / 1024 / 1024 / 1024, 1)) + " GB")
-            zram_s.grid(row=1, column=2)
+            zram_size.grid(row=1, column=1, padx=5, pady=5)
+            zram_disp_size = get_zram_size()
+            self.zram_used = True if zram_disp_size else False
+            zram_s = ctk.CTkLabel(self.frame_zram, text=str(round(zram_disp_size / 1024 / 1024 / 1024, 1)) + " GB")
+            zram_s.grid(row=1, column=2, padx=5, pady=5)
             ctk.CTkButton(self.frame_zram, text="Criar dispositivo Zram", command=set_zram_size).grid(row=2, column=0, columnspan=2, pady=5)
+            ctk.CTkLabel(self.frame_zram, text="Zram algorithm:").grid(row=3, column=0, padx=5, pady=5)
+            zram_comp_wid = ctk.CTkComboBox(self.frame_zram, state="readonly", values=get_zram_algorithms(), command=set_zram_algorithm)
+            zram_comp_wid.set(get_zram_algorithm())
+            zram_comp_wid.grid(row=3, column=1, padx=5, pady=5)
+            ctk.CTkLabel(self.frame_zram, text="max comp streams:").grid(row=4, column=0, padx=5, pady=5)
+            zram_max_comp_entry = ctk.CTkEntry(self.frame_zram, placeholder_text=get_zram_max_comp())
+            zram_max_comp_entry.grid(row=4, column=1, padx=5, pady=5)
+            ctk.CTkButton(self.frame_zram, text="Aplicar alteração", command=set_zram_max_comp).grid(row=4, column=2, padx=5, pady=5)
 
         self.frame_zram = LabelFrame(self.frame_memory, text="ZRAM", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zram.grid(row=3, column=1, padx=5, pady=5)
+        self.frame_zram.grid(row=5, column=1, padx=5, pady=5)
 
         zram_status = ctk.CTkLabel(self.frame_zram, text="Zram desabilitado")
         zram_status.grid(row=0, column=0, padx=5, pady=5)
         zram_init = path.exists("/sys/devices/virtual/block/zram0")
         print(zram_init)
         zram_button = ctk.CTkSwitch(self.frame_zram, text="Ativar Zram", command=switch_zram)
+        self.zram_used = False
         if zram_init:
             zram_button.select()
             zram_status.configure(text="Zram habilitado.")
@@ -444,7 +636,7 @@ class memory:
 
     def memory_hotplug(self):
         if not path.exists("/sys/module/memory_hotplug/parameters"):
-            pass
+            return
 
         def get_hotplug_mem_status():
             try:
@@ -460,8 +652,8 @@ class memory:
                         fd.write("Y")
                     else:
                         fd.write("N")
-            except:
-                print("ejfv")
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_hotplug_map_mem_status():
             try:
@@ -477,8 +669,8 @@ class memory:
                         fd.write("Y")
                     else:
                         fd.write("N")
-            except:
-                print("ejfv")
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_hotplug_ratio_status():
             try:
@@ -506,7 +698,7 @@ class memory:
      #       rotulo_hotplug_ratio.configure(text=str(int(hotplug_ratio_slider.get())) + "MB")
 
         hotplug_ram_frame = LabelFrame(self.frame_memory, text="Hotplug Ram", background='#212121', foreground="white", labelanchor="n")
-        hotplug_ram_frame.grid(row=5, column=1, padx=5, pady=5)
+        hotplug_ram_frame.grid(row=6, column=1, padx=5, pady=5)
         ctk.CTkLabel(hotplug_ram_frame, text="O Hotplug Ram é um mecanismo que permite mudar os modulos fisicos de RAM mesmo que o sistema esteja em execução.", justify="center", wraplength=400).grid(padx=5, pady=5, row=0, column=0, columnspan=3)
         ctk.CTkLabel(hotplug_ram_frame, text="Hotplug Ram:").grid(row=1, column=0, padx=5, pady=5)
         hotplug_button = ctk.CTkSwitch(hotplug_ram_frame, text="off/on", command=set_hotplug_mem_status)
@@ -546,23 +738,24 @@ class memory:
                 with open("/sys/kernel/mm/ksm/run", "w") as fd:
                    # fd.write(ksm_button.get())
                    fd.write(choice)
-            except:
-                print("error ksm")
-                return "0"
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_ksm_max_cpu_usage():
-            try:
-                with open("/sys/kernel/mm/ksm/adivsor_max_cpu", "r") as fd:
-                    return int(fd.read().strip())
-            except:
-                return 0
+           # try:
+            with open("/sys/kernel/mm/ksm/advisor_max_cpu", "r") as fd:
+                return int(fd.read().strip())
+            #except:
+             #   print("err efvtrt")
+              #  return 0
             
         def set_ksm_max_cpu_usage():
             try:
-                with open("/sys/kernel/mm/ksm/adivsor_max_cpu", "w") as fd:
-                    fd.write(str(ksm_cpu_usage_slider.get()))
-            except:
-                return 0
+                with open("/sys/kernel/mm/ksm/advisor_max_cpu", "w") as fd:
+                    print(ksm_cpu_usage_slider.get())
+                    fd.write(str(int(ksm_cpu_usage_slider.get())))
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_zero_page_status():
             try:
@@ -575,8 +768,8 @@ class memory:
             try:
                 with open("/sys/kernel/mm/ksm/use_zero_pages", "w") as fd:
                     fd.write(ksm_zero_page.get())
-            except:
-                return "0"
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_param_ksm(folder):
             try:
@@ -592,21 +785,22 @@ class memory:
                 with open(f"/sys/kernel/mm/ksm/{folder}", "w") as fd:
                     fd.write(value)
             except Exception as e:
-                return "0"
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         # tratamento futuro para pages to scan, smart scan?
         entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "adivsor_max_pages_to_scan"]
-        entry_names = ["Pages to scan", "sleep millisecs", "Check pages metadata", "Target scan time", "Min pages to scan", "Max pages to scan"]
+        entry_names = ["Pages to scan:", "sleep millisecs:", "Check pages metadata:", "Target scan time:", "Min pages to scan:", "Max pages to scan:"]
 
         ksm_status_var = ctk.StringVar(value=get_ksm_status())
         ksm_frame = LabelFrame(self.frame_memory, text="KSM", background='#212121', foreground="white", labelanchor="n")
-        ksm_frame.grid(row=4, column=1, padx=5, pady=5)
+        ksm_frame.grid(row=7, column=1, padx=5, pady=5)
         ctk.CTkLabel(ksm_frame, text="KSM: ").grid(row=0, column=0, padx=5, pady=5)
-        ksm_button = ctk.CTkComboBox(ksm_frame, values=["0", "1", "2"], command=set_ksm_status, variable=ksm_status_var)
+        ksm_button = ctk.CTkComboBox(ksm_frame, values=["0", "1", "2"], command=set_ksm_status, variable=ksm_status_var, state="readonly")
         #ksm_button.set(get_ksm_status())
         ksm_button.grid(row=0, column=1, pady=5)
         ctk.CTkLabel(ksm_frame, text="KSM cpu usage:").grid(row=1, column=0)
-        ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90, set=get_ksm_max_cpu_usage)
+        ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90)
+        ksm_cpu_usage_slider.set(int(get_ksm_max_cpu_usage()))
         ksm_cpu_usage_slider.grid(row=1, column=1)
         ctk.CTkButton(ksm_frame, text="Alterar", command=set_ksm_max_cpu_usage).grid(row=1, column=2)
 
@@ -614,14 +808,16 @@ class memory:
         ksm_zero_page = ctk.CTkSwitch(ksm_frame, text="off/on", command=set_zero_page)
         if get_zero_page_status() == "1":
             ksm_zero_page.select()
-        ksm_cpu_usage_slider.grid(row=2, column=1)
+        ksm_zero_page.grid(row=2, column=1)
 
+        row = 2
         entry_param = list(range(6))
         for label, folder, index in zip(entry_names, entry_params, range(6)):
-            ctk.CTkLabel(ksm_frame, text=label).grid(column=0)
-            entry_param[index] = ctk.CTkEntry(ksm_frame, placeholder_text=lambda: get_param_ksm(folder))
-            entry_param[index].grid(column=1)
-            ctk.CTkButton(ksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_ksm(folder, entry_param[i].get())).grid(column=1, columnspan=2)
+            row += 1
+            ctk.CTkLabel(ksm_frame, text=label).grid(row=row, column=0, padx=5, pady=5)
+            entry_param[index] = ctk.CTkEntry(ksm_frame, placeholder_text=get_param_ksm(folder))
+            entry_param[index].grid(column=1, row=row, padx=5, pady=5)
+            ctk.CTkButton(ksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_ksm(folder, entry_param[i].get())).grid(column=2, row=row, padx=5, pady=5)
 
     def rende_uksm(self):
         if not path.exists("/sys/kernel/mm/uksm"):
@@ -639,23 +835,22 @@ class memory:
                 with open("/sys/kernel/mm/uksm/run", "w") as fd:
                 # fd.write(ksm_button.get())
                     fd.write(choice)
-            except:
-                print("error uksm")
-                return "0"
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_uksm_max_cpu_usage():
             try:
-                with open("/sys/kernel/mm/uksm/adivsor_max_cpu", "r") as fd:
+                with open("/sys/kernel/mm/uksm/advisor_max_cpu", "r") as fd:
                     return int(fd.read().strip())
             except:
                 return 0
                 
         def set_uksm_max_cpu_usage():
             try:
-                with open("/sys/kernel/mm/uksm/adivsor_max_cpu", "w") as fd:
+                with open("/sys/kernel/mm/uksm/advisor_max_cpu", "w") as fd:
                     fd.write(str(uksm_cpu_usage_slider.get()))
-            except:
-                return 0
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_zero_page_status():
             try:
@@ -667,9 +862,9 @@ class memory:
         def set_zero_page():
             try:
                 with open("/sys/kernel/mm/uksm/use_zero_pages", "w") as fd:
-                    fd.write(ksm_zero_page.get())
-            except:
-                return "0"
+                    fd.write(uksm_zero_page.get())
+            except Exception as e:
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         def get_param_uksm(folder):
             try:
@@ -685,21 +880,22 @@ class memory:
                 with open(f"/sys/kernel/mm/uksm/{folder}", "w") as fd:
                     fd.write(value)
             except Exception as e:
-                return "0"
+                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         # tratamento futuro para pages to scan, smart scan?
         entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "adivsor_max_pages_to_scan"]
-        entry_names = ["Pages to scan", "sleep millisecs", "Check pages metadata", "Target scan time", "Min pages to scan", "Max pages to scan"]
+        entry_names = ["Pages to scan:", "sleep millisecs:", "Check pages metadata:", "Target scan time:", "Min pages to scan:", "Max pages to scan:"]
 
         uksm_status_var = ctk.StringVar(value=get_uksm_status())
         uksm_frame = LabelFrame(self.frame_memory, text="UKSM", background='#212121', foreground="white", labelanchor="n")
-        uksm_frame.grid(row=5, column=1, padx=5, pady=5)
+        uksm_frame.grid(row=8, column=1, padx=5, pady=5)
         ctk.CTkLabel(uksm_frame, text="UKSM: ").grid(row=0, column=0, padx=5, pady=5)
-        uksm_button = ctk.CTkComboBox(uksm_frame, values=["0", "1", "2"], command=set_uksm_status, variable=uksm_status_var)
+        uksm_button = ctk.CTkComboBox(uksm_frame, values=["0", "1", "2"], command=set_uksm_status, variable=uksm_status_var, state="readonly")
         #uksm_button.set(get_ksm_status())
         uksm_button.grid(row=0, column=1, pady=5)
         ctk.CTkLabel(uksm_frame, text="UKSM cpu usage:").grid(row=1, column=0)
-        uksm_cpu_usage_slider = ctk.CTkSlider(uksm_frame, from_=0, to=90, set=get_uksm_max_cpu_usage)
+        uksm_cpu_usage_slider = ctk.CTkSlider(uksm_frame, from_=0, to=90)
+        uksm_cpu_usage_slider.set(get_uksm_max_cpu_usage())
         uksm_cpu_usage_slider.grid(row=1, column=1)
         ctk.CTkButton(uksm_frame, text="Alterar", command=set_uksm_max_cpu_usage).grid(row=1, column=2)
 
@@ -707,25 +903,56 @@ class memory:
         uksm_zero_page = ctk.CTkSwitch(uksm_frame, text="off/on", command=set_zero_page)
         if get_zero_page_status() == "1":
             uksm_zero_page.select()
-        uksm_cpu_usage_slider.grid(row=2, column=1)
+        uksm_zero_page.grid(row=2, column=1)
 
+        row = 2
         entry_param = list(range(6))
         for label, folder, index in zip(entry_names, entry_params, range(6)):
-            ctk.CTkLabel(uksm_frame, text=label).grid(column=0)
+            row += 1
+            ctk.CTkLabel(uksm_frame, text=label).grid(column=0, row=row)
             entry_param[index] = ctk.CTkEntry(uksm_frame, placeholder_text=lambda: get_param_uksm(folder))
-            entry_param[index].grid(column=1)
-            ctk.CTkButton(uksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_uksm(folder, entry_param[i].get())).grid(column=1, columnspan=2)
+            entry_param[index].grid(column=1, row=row)
+            ctk.CTkButton(uksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_uksm(folder, entry_param[i].get())).grid(column=2, row=row)
+
+    def rende_swap_area(self):
+        def get_swap_disks():
+            swaps_files = []
+            try:
+                with open("/proc/swaps", "r") as fd:
+                    for swap_text in fd:
+                        if not swap_text.find("Filename"):
+                            continue
+                        print(swap_text)
+                        swap_ar = swap_text.split()
+                        print(swap_ar)
+                        swaps_files.append(swap_ar[0])
+                        print(swaps_files)
+            except:
+                pass
+            return swaps_files
+
+        swap_area_frame = LabelFrame(self.frame_memory, text="Swap area", background='#212121', foreground="white", labelanchor="n")
+        swap_area_frame.grid(row=9, column=1, padx=5, pady=5)
+        get_swap_disks()
+        ctk.CTkLabel(swap_area_frame, text="Swap name").grid(row=0, column=0, padx=5, pady=5)
+        ctk.CTkLabel(swap_area_frame, text="Swap status").grid(row=0, column=1, padx=5, pady=5)
+        ctk.CTkLabel(swap_area_frame, text="Swap size").grid(row=0, column=2, padx=5, pady=5)
+        row = 1
+        for swap in get_swap_disks():
+            ctk.CTkLabel(swap_area_frame, text=swap).grid(row=row, column=0, padx=5, pady=5)
+            row += 1
 
     def rende_memory(self, menu):
         self.task = None
-      #  self.get_vm_info()
         self.menu = menu
         self.error = event_error.io_error()
         self.memory_system()
         self.rende_vm_info()
+        self.rende_hugepage_1gb()
         self.rende_thp()
         self.rende_zswap()
         self.rende_zram()
         self.rende_ksm()
         self.rende_uksm()
         self.memory_hotplug()
+        self.rende_swap_area()
