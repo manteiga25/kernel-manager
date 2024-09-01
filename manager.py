@@ -1,16 +1,52 @@
 import cpuinfo as cpui
 import psutil
 import customtkinter as ctk
-import cpufreq
-import cpuidle
-import system
 import os
 import event_error
-import memory
-import io_manager
-import battery
 from CTkMenuBar import *
 from tkinter import LabelFrame
+from ctypes import CDLL, c_short, c_char_p, c_bool, Structure, POINTER
+from blinker import signal
+
+class cache_struct(Structure):
+    _fields_ = [("cache_l1i_size", c_short),
+              ("cache_l1i_assoc", c_short),
+              ("cache_l1i_line_size", c_short),
+              ("cache_l1i_instances", c_short),
+
+              ("cache_l1d_size", c_short),
+              ("cache_l1d_assoc", c_short),
+              ("cache_l1d_line_size", c_short),
+              ("cache_l1d_instances", c_short),
+
+              ("cache_l2_size", c_short),
+              ("cache_l2_assoc", c_short),
+              ("cache_l2_line_size", c_short),
+              ("cache_l2_instances", c_short),
+
+              ("cache_l3_size", c_short),
+              ("cache_l3_assoc", c_short),
+              ("cache_l3_line_size", c_short),
+              ("cache_l3_instances", c_short),
+
+              ("cache_l4_size", c_short),
+              ("cache_l4_assoc", c_short),
+              ("cache_l4_line_size", c_short),
+              ("cache_l4_instances", c_short),
+              ]
+
+# Definir a OuterStruct em Python, que contém a InnerStruct
+class cpu_info_struct(Structure):
+    _fields_ = [("cpu_name", c_char_p),
+                ("cpu_purpouse", c_char_p),
+                ("fisical_cores", c_short),
+                ("logical_cores", c_short),
+                ("cpu_model", c_short),
+                ("cpu_family", c_short),
+                ("cpu_stepping", c_short),
+                ("cpu_vendor", c_short),
+                ("cpu_codename", c_char_p),
+                ("cache_info", cache_struct)]
 
 def get_core_microcode(core):
     ret = list(range(2))
@@ -68,7 +104,7 @@ def get_cpu_erratas():
         pass
     return info
 
-class janela_prin:
+class cpuinfo:
 
     def cpu_has_ht(self, isa):
         try:
@@ -99,8 +135,9 @@ class janela_prin:
 
     def cpu_info(self):
         self.cpu_info = cpui.get_cpu_info()
-        self.core_num = str(psutil.cpu_count(logical=False))
-        self.thread_num = str(psutil.cpu_count())
+        for id in range(self.clusters):
+            self.core_num = self.struct[id].fisical_cores
+            self.thread_num = self.struct[id].logical_cores
         self.hyper_state = self.cpu_has_ht(str(self.cpu_info["flags"]))
 
     def frame_cpu_info(self):
@@ -194,13 +231,16 @@ class janela_prin:
         titulo_cpu_rotulos2 = ["Model: ", "Family: ", "Stepping: ", "Bits: ", "Microcode: "]
         cpu_hash = ["brand_raw", "vendor_id_raw", "arch"]
         cpu_hash2 = ["model", "family", "stepping", "bits"]
-        self.num_cores = int(self.thread_num) if self.hyper_state == 1 else int(self.core_num)
+     #   titulo_cpu_rotulos = ["CPU Name: ", "Vendor: ", "Architecture: "]
+    #    titulo_cpu_rotulos2 = ["Model: ", "Family: ", "Stepping: ", "Bits: ", "Microcode: "]
+     #   self.num_cores = int(self.thread_num) if self.hyper_state == 1 else int(self.core_num)
+        self.num_cores = self.total_cores
         self.e_cores, self.p_cores = self.cpu_is_big_little()
         isa = ""
         for feature in self.cpu_info["flags"]:
             isa += feature + ", "
         hyper_state = self.cpu_has_ht(str(self.cpu_info["flags"]))
-        self.frame_cpuinfo_global = ctk.CTkScrollableFrame(self.cpu_info_tab, width=770, height=800)
+        self.frame_cpuinfo_global = ctk.CTkScrollableFrame(self.menu, width=770, height=800)
         self.frame_cpuinfo_global.grid(row=3, column=0)
         self.frame_cpu = LabelFrame(self.frame_cpuinfo_global, text="CPU info", background='#212121', foreground="white")
         self.frame_cpu.pack(padx=5, pady=5, fill=ctk.BOTH, expand=1)
@@ -208,9 +248,9 @@ class janela_prin:
         self.frame_cpu_brand.grid(row=0, column=0, padx=5, pady=5, sticky="nw", rowspan=10)
         for info, hash_cpu in zip(titulo_cpu_rotulos, cpu_hash):
             ctk.CTkLabel(self.frame_cpu_brand, text=info + self.cpu_info[hash_cpu]).pack(anchor="w", padx=5, pady=5)
-        ctk.CTkLabel(self.frame_cpu_brand, text="Architecture extension: " + self.cpu_info["arch"] + "-" + self.get_architecture_extension(isa)).pack(anchor="w", padx=5, pady=5)
-        ctk.CTkLabel(self.frame_cpu_brand, text="Cores: " + str(psutil.cpu_count(logical=False))).pack(anchor="w", padx=5, pady=5)
-        ctk.CTkLabel(self.frame_cpu_brand, text="Threads: " + str(psutil.cpu_count())).pack(anchor="w", padx=5, pady=5)
+       # ctk.CTkLabel(self.frame_cpu_brand, text="Architecture extension: " + self.cpu_info["arch"] + "-" + self.get_architecture_extension(isa)).pack(anchor="w", padx=5, pady=5)
+        ctk.CTkLabel(self.frame_cpu_brand, text="Cores: " + str(self.struct[0].fisical_cores)).pack(anchor="w", padx=5, pady=5)
+        ctk.CTkLabel(self.frame_cpu_brand, text="Threads: " + str(self.struct[0].logical_cores)).pack(anchor="w", padx=5, pady=5)
         if hyper_state == 0:
             ctk.CTkLabel(self.frame_cpu_brand, text="Hyperthreading: Not supported").pack(anchor="w", padx=5, pady=5)
         elif hyper_state == 1:
@@ -358,106 +398,58 @@ class janela_prin:
             self.e_cores -= 1
             return "eficiency"
 
+    def set_list_purpouse(self):
+        purpouse_list = []
+        for id in range(self.clusters):
+            purpouse_list.append(self.struct[id].cpu_purpouse.decode("utf-8"))
+        print(purpouse_list)
+        return purpouse_list
 
-    def rende_cpu_info(self):
-         self.frame_cpu_info()
-      #   self.rende_placa_mae_info()
-     #    self.frame_core_info()
+    def init_library_cpuid(self):
+        lib_cpuid = CDLL("?/lib_manager.so")
+        lib_cpuid.cpu_init.restype = c_bool
+        lib_cpuid.get_cpu_info.restype = POINTER(cpu_info_struct)
+        lib_cpuid.total_cores_system.restype = c_short
+        lib_cpuid.clusters.restype = c_short
 
-    def __init__(self) -> None:
-         self.janela : ctk.CTk = ctk.CTk() # nome tempoprario
-         self.janela.title("Kernel manager")
-     #    self.janela.maxsize(1080, 1280)
-         self.frame_atual = "CPU info"
-         self.frame_anterior = "CPU info"
-         self.init_title_menu()
+        if lib_cpuid.cpu_init() == 1:
+            print("Erro")
+            return True
+
+        self.struct = lib_cpuid.get_cpu_info()
+
+        if not self.struct:
+            print("Error null struct")
+            return True
+
+        self.total_cores = lib_cpuid.total_cores_system()
+        self.clusters = lib_cpuid.clusters()
+        print("total cores, ", self.total_cores)
+        print("clusters, ", self.clusters)
+        self.list_cores = {}
+        for cluster in range(self.clusters):
+            self.list_cores[self.struct[cluster].cpu_purpouse.decode("utf-8")] = self.struct[cluster].logical_cores
+
+        print("cores in clusters: ", self.list_cores)
+
+        return False
+
+    def rende_cpu_info(self, menu, error_obj):
+         print("manager")
+         self.error_obj = error_obj
+        # self.folders_cores = folders_cores
+         l = self.init_library_cpuid()
+         if l:
+             self.error_obj.set_error("Erro ao inicializar a biblioteca")
+         self.set_list_purpouse()
+         self.menu = menu
          self.cpu_info()
-         self.init_menu()
-         self.rende_cpu_info()
-         self.inicialize_objects()
-         self.inicialize_pages()
-         self.janela.mainloop()
+         self.frame_cpu_info()
+         return self.total_cores, self.list_cores
 
-    def inicialize_objects(self):
-        self.error = event_error.io_error()
-        self.system_module = system.system()
-        self.cpufreq_module = cpufreq.cpu_freq()
-        self.cpuidle_module = cpuidle.cpu_idle()
-        self.memory_module = memory.memory()
-        self.io_module = io_manager.io_manager()
-        self.battery_module = battery.battery()
-
-    def inicialize_pages(self):
-        self.system_module.rende_system_info(menu=self.cpu_system_tab)
-        self.cpufreq_module.rende_cpu_freq(menu=self.cpu_freq_tab, num_cores=self.thread_num)
-        self.cpuidle_module.rende_cpu_idle(menu=self.cpu_idle_tab)
-        self.memory_module.rende_memory(menu=self.cpu_menu_tab)
-        self.io_module.rende_io(self.io_menu_tab)
-        self.battery_module.rende_battery(self.battery_menu_tab)
-
-    def ver_registo(self):
-        conteudo = self.error.le_registro()
-        janela_reg = ctk.CTkToplevel(self.janela)
-        janela_reg.title("errors")
-        frame = ctk.CTkFrame(janela_reg)
-        frame.pack(fill="both", expand=True)
-        self.textbox = ctk.CTkTextbox(frame, wrap="word", width=600, height=200)
-        self.textbox.insert("0.0", conteudo)
-        self.textbox.configure(state="disabled")
-        self.textbox.pack(padx=10, pady=10, fill="both", expand=True)
-
-    def init_title_menu(self):
-        title_menu = CTkMenuBar(self.janela)
-        menu_file = title_menu.add_cascade("File")
-        dropdown1 = CustomDropdownMenu(widget=menu_file)
-        dropdown1.add_option(option="Open", command=self.ver_registo)
-        dropdown1.add_separator()
-
-    def verify_page(self):
-        self.frame_atual = self.menu.get()
-
-        if self.frame_anterior == "CPU frequency":
-            self.cpufreq_module.cancel_task()
-        elif self.frame_anterior == "Memory":
-            self.memory_module.cancel_task()
-        elif self.frame_anterior == "CPU info":
-            self.cancel_task()
-        elif self.frame_anterior == "Battery":
-            self.battery_module.cancel_task()
-        
-        if self.frame_atual == "CPU frequency":
-            self.cpufreq_module.start_task()
-        elif self.frame_atual == "Memory":
-            self.memory_module.start_task()
-        elif self.frame_atual == "CPU info":
-            self.memory_module.start_task()
-        elif self.frame_atual == "Battery":
-            self.battery_module.start_task()
-
-
-        self.frame_anterior = self.frame_atual
-            
     def start_task(self):
         self.update_cpu_util()
     
     def cancel_task(self):
         self.frame_cpu.after_cancel(self.task)
-
-    def init_menu(self):
-       # self.menu = ctk.CTkTabview(master=self.janela, command=self.mudar_pagina)
-        self.menu = ctk.CTkTabview(master=self.janela, command=self.verify_page)
-        self.menu.pack(padx=5, expand=True, fill="both")
-        self.cpu_info_tab = self.menu.add("CPU info")  # add tab at the end
-        self.cpu_system_tab = self.menu.add("System info")  # add tab at the end
-        self.cpu_freq_tab = self.menu.add("CPU frequency")  # add tab at the end
-        self.cpu_idle_tab = self.menu.add("CPU idle")  # add tab at the end
-        self.cpu_menu_tab = self.menu.add("Memory")  # add tab at the end
-        self.io_menu_tab = self.menu.add("I/O")  # add tab at the end
-        self.battery_menu_tab = self.menu.add("Battery")  # add tab at the end
-
-        self.rende_cpu_info()
-
-ctk.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue"
-ctk.set_appearance_mode("dark")
-main = janela_prin()
 
