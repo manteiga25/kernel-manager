@@ -5,7 +5,7 @@ from platform import uname
 from os import listdir, stat, path, system
 from tkinter import LabelFrame
 from CTkMessagebox import CTkMessagebox
-from time import sleep
+#import CTkTable
 
 class memory:
 
@@ -43,16 +43,16 @@ class memory:
             except:
                         return "err"
 
-        def set_thp_defrag_mode():
-            mode = modo_thp_defrag.get()
+        def set_thp_defrag_mode(mode):
+         #   mode = modo_thp_defrag.get()
             system(f"echo {mode} > /sys/kernel/mm/transparent_hugepage/defrag")
 
-        def set_thp_mode():
-            mode = modo_thp.get()
+        def set_thp_mode(mode):
+          #  mode = modo_thp.get()
             system(f"echo {mode} > /sys/kernel/mm/transparent_hugepage/enabled")
         
-        def set_thp_shm_mode():
-            mode = modo_thp_shm.get()
+        def set_thp_shm_mode(mode):
+           # mode = modo_thp_shm.get()
             system(f"echo {mode} > /sys/kernel/mm/transparent_hugepage/shmem_enabled")
 
         def get_thp_info():
@@ -74,14 +74,14 @@ class memory:
                 except:
                             return "err"
 
-            def set_thp(thp):
-                print(thp)
-                state = huge_page[thp].get()
-                print(state)
-                system(f"echo {state} > /sys/kernel/mm/transparent_hugepage/{thp}/enabled")
+            def set_thp(thp_mode, thp_file):
+                print(thp_mode)
+             #   state = huge_page[thp].get()
+                print(thp_file)
+                system(f"echo {thp_mode} > /sys/kernel/mm/transparent_hugepage/{thp_file}/enabled")
 
-            huge_page = {}
-            huge_page_ok = {}
+          #  huge_page = {}
+           # huge_page_ok = {}
             try:
                 folders = listdir("/sys/kernel/mm/transparent_hugepage/")
                 folders_num = len(folders)
@@ -100,12 +100,12 @@ class memory:
                             print("opened " + folder)
                             estado = huge_fd.read().strip()
                             ctk.CTkLabel(self.frame_thp, text=folder).grid(row=index, column=0)
-                            huge_page[folder] = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly")
+                            huge_page = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly", command=lambda v=index, f=folder: set_thp(v, f))
                             mode = get_thp_mode(folder)
-                            huge_page[folder].set(mode)
-                            huge_page_ok[folder] = ctk.CTkButton(self.frame_thp, text="Alterar", command=lambda f=folder: set_thp(f))
-                            huge_page[folder].grid(pady=5, row=index, column=1)
-                            huge_page_ok[folder].grid(pady=5, row=index, column=2)
+                            huge_page.set(mode)
+                            #huge_page_ok[folder] = ctk.CTkButton(self.frame_thp, text="Alterar", command=lambda f=folder: set_thp(f))
+                            huge_page.grid(pady=5, row=index, column=1)
+                            #huge_page_ok[folder].grid(pady=5, row=index, column=2)
                     except:
                         print("erro " + folder)
 
@@ -159,7 +159,7 @@ class memory:
                     CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
             frame_khugepaged = LabelFrame(self.frame_memory, text="Khugepaged", background='#212121', foreground="white", labelanchor="n")
-            frame_khugepaged.grid(pady=5, column=1, row=2, sticky="nsew", padx=5)
+            frame_khugepaged.grid(pady=5, column=1, row=3, sticky="nsew", padx=5, rowspan=1)
             folders = ["alloc_sleep_millisecs", "scan_sleep_millisecs", "pages_to_scan"]
             entry_khuge = list(range(3))
 
@@ -178,29 +178,27 @@ class memory:
         if not path.exists("/sys/kernel/mm/transparent_hugepage"):
             return
 
-        rende_khugepaged()
-
         self.frame_thp = LabelFrame(self.frame_memory, text="Transparent Huge Page", background='#212121', foreground="white", labelanchor="n")
-        self.frame_thp.grid(pady=5, column=1, row=1, sticky="nsew", padx=5)
+        self.frame_thp.grid(pady=5, column=0, row=3, sticky="nsew", padx=5, rowspan=3)
         self.modos = get_thp_modes("enabled")
         modo = get_thp_mode("enabled")
         ctk.CTkLabel(self.frame_thp, text="Transparent Huge Page mode").grid(row=0, column=0, padx=5, pady=5)
-        modo_thp = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly")
+        modo_thp = ctk.CTkComboBox(self.frame_thp, values=self.modos, state="readonly", command=set_thp_mode)
         modo_thp.set(modo)
         modo_thp.grid(row=0, column=1, padx=5, pady=5)
-        ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_mode).grid(row=0, column=2, padx=5, pady=5)
+       # ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_mode).grid(row=0, column=2, padx=5, pady=5)
 
         ctk.CTkLabel(self.frame_thp, text="Defrag").grid(row=1, column=0, padx=5, pady=5)
-        modo_thp_defrag = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("defrag"), state="readonly")
+        modo_thp_defrag = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("defrag"), state="readonly", command=set_thp_defrag_mode)
         modo_thp_defrag.set(get_thp_mode("defrag"))
         modo_thp_defrag.grid(row=1, column=1, padx=5, pady=5)
-        ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_defrag_mode).grid(row=1, column=2, padx=5, pady=5)
+       # ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_defrag_mode).grid(row=1, column=2, padx=5, pady=5)
 
         ctk.CTkLabel(self.frame_thp, text="Shared mem").grid(row=2, column=0, padx=5, pady=5)
-        modo_thp_shm = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("shmem_enabled"), state="readonly")
+        modo_thp_shm = ctk.CTkComboBox(self.frame_thp, values=get_thp_modes("shmem_enabled"), state="readonly", command=set_thp_shm_mode)
         modo_thp_shm.set(get_thp_mode("shmem_enabled"))
         modo_thp_shm.grid(row=2, column=1, padx=5, pady=5)
-        ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_shm_mode).grid(row=2, column=2, padx=5, pady=5)
+     #   ctk.CTkButton(self.frame_thp, text="Alterar", command=set_thp_shm_mode).grid(row=2, column=2, padx=5, pady=5)
         
         ctk.CTkLabel(self.frame_thp, text="Zero page").grid(row=3, column=0, padx=5, pady=5)
         modo_thp_zero_page = ctk.CTkSwitch(self.frame_thp, text="Off/On", command=lambda: set_thp_zero_page(modo_thp_zero_page.get()))
@@ -209,6 +207,7 @@ class memory:
         modo_thp_zero_page.grid(row=3, column=1, padx=5, pady=5)
 
         get_thp_info()
+        rende_khugepaged()
 
     def get_vm_info(self):
         info = {}
@@ -261,22 +260,28 @@ class memory:
         self.entry_vars = {}
         self.vm_widget = {}
         frame_vm_info = LabelFrame(self.frame_memory, text="VM info", background='#212121', foreground="white", labelanchor="n")
-        frame_vm_info.grid(column=0, row=1, rowspan=100)
+        frame_vm_info.grid(column=0, row=1, columnspan=6)
+    #    frame_vm_info.grid(column=0, row=1)
         for info, local in zip(self.vm_info.keys(), range(len(self.vm_info))):
+          #  row = local // 3
+           # col = (local % 3) * 3
             if file_perm[info] == 33188:
-                ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ", justify="left").grid(padx=5, row=local, column=0)
+                row = local // 3
+                col = (local % 3) * 3
+                ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ", justify="left").grid(padx=5, row=row, column=col)
                 self.entry_var = ctk.StringVar()
                 self.entry_var.set(self.vm_info[info])
                 self.entry_vars[info] = self.entry_var
                 #self.entry_vars[info] = vm_info[info]
                 #ctk.CTkEntry(frame_vm_info, placeholder_text=vm_info[info], justify="left").grid(padx=5, row=local, column=1)
               #  self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, placeholder_text=self.vm_info[info], justify="left").grid(padx=5, pady=5, row=local, column=1)
-                self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, justify="left").grid(padx=5, pady=5, row=local, column=1)
-            else:
-                ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ").grid(padx=5, pady=5, row=local, column=0)
-                ctk.CTkLabel(frame_vm_info, text=self.vm_info[info] + " (read-only)").grid(padx=5, pady=5, row=local, column=1, sticky="w")
+                self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, justify="left").grid(padx=5, pady=5, row=row, column=col+1)
+                col += 3
+       #     else:
+        #        ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ").grid(padx=5, pady=5, row=row, column=col)
+         #       ctk.CTkLabel(frame_vm_info, text=self.vm_info[info] + " (read-only)").grid(padx=5, pady=5, row=row, column=col+1, sticky="w")
 
-        ctk.CTkButton(frame_vm_info, text="Salvar alterações", command=self.set_memory_param).grid()
+        ctk.CTkButton(frame_vm_info, text="Salvar alterações", width=200, height=40, command=self.set_memory_param).grid(columnspan=6, pady=5, column=1)
 
     def update_mem_info(self): # código feito com preguiça
             mem_text = ["Disponível: ", "usado: "]
@@ -290,7 +295,7 @@ class memory:
     def rende_memory_bar(self):
         self.mem = list(range(2))
         frame_mem = ctk.CTkFrame(self.frame_memory, width=350, height=100)
-        frame_mem.grid(row=0, column=1, columnspan=6)
+        frame_mem.grid(row=0, column=0, columnspan=2)
         self.mem_ram_pc = psutil.virtual_memory()[0]
      #   ctk.CTkLabel(self.frame_memory, text="Memory RAM size: " + str(round(psutil.virtual_memory()[0] / 1024 / 1024 / 1024, 1)) + "GB").grid(row=0, column=3, columnspan=2, padx=0, pady=5, sticky="w")
         ctk.CTkLabel(frame_mem, text="Memory RAM size: " + str(round(self.mem_ram_pc / 1024 / 1024 / 1024, 1)) + "GB").place(x=60, y=10)
@@ -340,7 +345,7 @@ class memory:
             return
 
         hugepage_1bg = LabelFrame(self.frame_memory, text="Hugepage 1gb", background='#212121', foreground="white", labelanchor="n")
-        hugepage_1bg.grid(row=3, column=1, padx=5, pady=5)
+        hugepage_1bg.grid(row=4, column=1, padx=5, pady=5)
         folders = ["nr_hugepages", "nr_overcommit_hugepages"]
         labels = ["Nr hugepages 1gb:", "overcommit_hugepages:"]
         entry_hp = list(range(2))
@@ -442,7 +447,7 @@ class memory:
                 CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
         self.frame_zswap = LabelFrame(self.frame_memory, text="Zswap", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zswap.grid(row=4, column=1, columnspan=6, pady=5, padx=5)
+        self.frame_zswap.grid(row=2, column=1, columnspan=6, pady=5, padx=5)
         zswap_feature_bool_name = ["Zswap state", "shrinker", "exclusive loads", "same filled pages", "non same filled pages"]
         zswap_feature_bool_folder =  ["enabled", "shrinker_enabled", "exclusive_loads", "same_filled_pages_enabled", "non_same_filled_pages_enabled"]
         zswap_state = list(range(5))
@@ -497,129 +502,22 @@ class memory:
                 system("sudo modprobe zram")
                 zram_button.configure(text="Desativar zram")
                 zram_status.configure(text="Zram habilitado")
-                create_zram()
+                self.create_zram()
             else:
-                self.zram_used = False
-                system("sudo swapoff /dev/zram0")
-                system("sudo echo 1 > /sys/block/zram0/reset")
+                if self.zram_used:
+                    self.zram_used = False
+                    system("sudo swapoff /dev/zram0")
+                    system("sudo echo 1 > /sys/block/zram0/reset")
                 system("sudo rmmod zram")
-                zram_button.configure(text="Ativar zram")
-                zram_status.configure(text="Zram desabilitado")
-
-        def create_zram():
-
-            def get_zram_algorithm():
-                try:
-                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
-                        return fd.read().strip()
-                except:
-                    return "err"
-
-            def set_zram_algorithm(value):
-                try:
-                    with open("/sys/block/zram0/comp_algorithm", "w") as fd:
-                        fd.write(value)
-                except:
-                    pass
-
-            def change_slide_val(event):
-                zram_s.configure(text=str(round(zram_size.get() / 1024 / 1024 / 1024, 1)) + " GB")
-
-            def set_zram_size():
-                zram_nsize = zram_size.get()
-                print(round(zram_nsize / 1024 / 1024 / 1024, 1), " GB")
-                try:
-                    if self.zram_used:
-                        print("jsfbvhebirb")
-                        system("swapoff /dev/zram0")
-                        system("mkswap -U clear /dev/zram0")
-                        system("sudo echo 1 > /sys/block/zram0/reset")
-                  #  system("swapoff dev/ram0")
-                   # sleep(5)
-                   # system("mkswap -U clear /dev/zram0")
-                    #sleep(5)
-                   # system("sudo echo 1 > /sys/block/zram0/reset")
-                    #sleep(5)
-                    with open("/sys/block/zram0/disksize", "w") as f:
-                        f.write(str(zram_nsize))
-                    system("mkswap -U clear /dev/zram0")
-                    system("swapon --priority 100 /dev/zram0")
-                except:
-                    zram_val = get_zram_size()
-                    zram_s.configure(text=str(round(zram_val / 1024 / 1024 / 1024, 1)) + " GB")
-                    zram_size.set(zram_val)
-                    CTkMessagebox(title="Dispositivo ocupado", message="Não foi possivel aplicar parametro ao dispositivo Zram,\n Zram ocupado", icon="cancel")
-
-            def get_zram_algorithms():
-                try:
-                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
-                        algorithms = fd.read().strip()
-                        algorithms = algorithms.replace("[", '')
-                        algorithms = algorithms.replace("]", '')
-                        algorithms_list = algorithms.split()
-                        return algorithms_list
-                except:
-                    return "err"
-
-            def get_zram_algorithm():
-                try:
-                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
-                        algorithms = fd.read().strip()
-                        algorithms = algorithms.split()
-                        print(algorithms)
-                        default_algorithm = [algorithm for algorithm in algorithms if not algorithm.find("[")]
-                        print("euihrhtue", default_algorithm)
-                        default_algorithm = default_algorithm[0].replace("[", "")
-                        default_algorithm = default_algorithm.replace("]", "")
-                        return default_algorithm
-                except:
-                    return "err"
-
-            def get_zram_size():
-                try:
-                    with open("/sys/block/zram0/disksize", "r") as f:
-                        return int(f.read())
-                except:
-                    print("e")
-                    return 0
-
-            def get_zram_max_comp():
-                try:
-                    with open("/sys/block/zram0/max_comp_streams", "r") as fd:
-                        return fd.read().strip()
-                except:
-                    return "err"
-            
-            def set_zram_max_comp():
-                try:
-                    with open("/sys/block/zram0/max_comp_streams", "w") as fd:
-                        fd.write(zram_max_comp_entry.get())
-                except:
-                    return "err"
-
-            ctk.CTkLabel(self.frame_zram, text="Tamanho do zram:").grid(row=1, column=0, padx=5, pady=5)
-            zram_size = ctk.CTkSlider(self.frame_zram, from_=0, to=self.mem_ram_pc / 2)
-            print(get_zram_size() / 1024 / 1024 / 1024)
-            zram_size.set(get_zram_size())
-            zram_size.bind('<Button-1>', change_slide_val)
-            zram_size.bind("<B1-Motion>", change_slide_val)
-            zram_size.grid(row=1, column=1, padx=5, pady=5)
-            zram_disp_size = get_zram_size()
-            self.zram_used = True if zram_disp_size else False
-            zram_s = ctk.CTkLabel(self.frame_zram, text=str(round(zram_disp_size / 1024 / 1024 / 1024, 1)) + " GB")
-            zram_s.grid(row=1, column=2, padx=5, pady=5)
-            ctk.CTkButton(self.frame_zram, text="Criar dispositivo Zram", command=set_zram_size).grid(row=2, column=0, columnspan=2, pady=5)
-            ctk.CTkLabel(self.frame_zram, text="Zram algorithm:").grid(row=3, column=0, padx=5, pady=5)
-            zram_comp_wid = ctk.CTkComboBox(self.frame_zram, state="readonly", values=get_zram_algorithms(), command=set_zram_algorithm)
-            zram_comp_wid.set(get_zram_algorithm())
-            zram_comp_wid.grid(row=3, column=1, padx=5, pady=5)
-            ctk.CTkLabel(self.frame_zram, text="max comp streams:").grid(row=4, column=0, padx=5, pady=5)
-            zram_max_comp_entry = ctk.CTkEntry(self.frame_zram, placeholder_text=get_zram_max_comp())
-            zram_max_comp_entry.grid(row=4, column=1, padx=5, pady=5)
-            ctk.CTkButton(self.frame_zram, text="Aplicar alteração", command=set_zram_max_comp).grid(row=4, column=2, padx=5, pady=5)
+                for widget in self.frame_zram.winfo_children():
+                    widget.destroy()
+                self.frame_zram.destroy()
+                self.rende_zram()
+            #    zram_button.configure(text="Ativar zram")
+             #   zram_status.configure(text="Zram desabilitado")
 
         self.frame_zram = LabelFrame(self.frame_memory, text="ZRAM", background='#212121', foreground="white", labelanchor="n")
-        self.frame_zram.grid(row=5, column=1, padx=5, pady=5)
+        self.frame_zram.grid(row=6, column=1, rowspan=2, padx=5, pady=5)
 
         zram_status = ctk.CTkLabel(self.frame_zram, text="Zram desabilitado")
         zram_status.grid(row=0, column=0, padx=5, pady=5)
@@ -631,8 +529,133 @@ class memory:
             zram_button.select()
             zram_status.configure(text="Zram habilitado.")
             zram_button.configure(text="Desativar zram")
-            create_zram()
+            self.create_zram()
         zram_button.grid(row=0, column=1)
+
+    def create_zram(self):
+        def get_zram_algorithm():
+                try:
+                    with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                        return fd.read().strip()
+                except:
+                    return "err"
+
+        def set_zram_algorithm(value):
+            print(self.zram_used)
+            if self.zram_used:
+                system("sudo swapoff /dev/zram0")
+                system("sudo echo 1 > /sys/block/zram0/reset")
+            system(f"echo {value} > /sys/block/zram0/comp_algorithm")
+            if self.zram_used:
+                system(f"swapon --priority {self.zram_priority.get()} /dev/zram0")
+
+        def change_slide_val(event):
+            zram_s.configure(text=str(round(zram_size.get() / 1024 / 1024 / 1024, 1)) + " GB")
+
+        def set_zram_size(prio):
+            zram_nsize = zram_size.get()
+            print(round(zram_nsize / 1024 / 1024 / 1024, 1), " GB")
+            try:
+                if self.zram_used:
+                    system("swapoff /dev/zram0")
+                    system("mkswap -U clear /dev/zram0")
+                    system("sudo echo 1 > /sys/block/zram0/reset")
+                with open("/sys/block/zram0/disksize", "w") as f:
+                    f.write(str(zram_nsize))
+                system("mkswap -U clear /dev/zram0")
+                system(f"swapon --priority {prio} /dev/zram0")
+            except:
+                zram_val = get_zram_size()
+                zram_s.configure(text=str(round(zram_val / 1024 / 1024 / 1024, 1)) + " GB")
+                zram_size.set(zram_val)
+                CTkMessagebox(title="Dispositivo ocupado", message="Não foi possivel aplicar parametro ao dispositivo Zram,\n Zram ocupado", icon="cancel")
+
+        def get_zram_algorithms():
+            try:
+                with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                    algorithms = fd.read().strip()
+                    algorithms = algorithms.replace("[", '')
+                    algorithms = algorithms.replace("]", '')
+                    algorithms_list = algorithms.split()
+                    return algorithms_list
+            except:
+                return "err"
+
+        def get_zram_algorithm():
+            try:
+                with open("/sys/block/zram0/comp_algorithm", "r") as fd:
+                    algorithms = fd.read().strip()
+                    algorithms = algorithms.split()
+                    print(algorithms)
+                    default_algorithm = [algorithm for algorithm in algorithms if not algorithm.find("[")]
+                    print("euihrhtue", default_algorithm)
+                    default_algorithm = default_algorithm[0].replace("[", "")
+                    default_algorithm = default_algorithm.replace("]", "")
+                    return default_algorithm
+            except:
+                return "err"
+
+        def get_zram_size():
+            try:
+                with open("/sys/block/zram0/disksize", "r") as f:
+                    return int(f.read())
+            except:
+                print("e")
+                return 0
+
+        def get_zram_max_comp():
+            try:
+                with open("/sys/block/zram0/max_comp_streams", "r") as fd:
+                    return fd.read().strip()
+            except:
+                return "err"
+            
+        def set_zram_max_comp():
+            try:
+                with open("/sys/block/zram0/max_comp_streams", "w") as fd:
+                    fd.write(zram_max_comp_entry.get())
+            except:
+                return "err"
+
+        def get_zram_disk_prio():
+            zram_prio = 100 # default val
+            try:
+                with open("/proc/swaps", "r") as fd:
+                    for swap_text in fd:
+                        if not swap_text.find("Filename"):
+                            continue
+                        swap_ar = swap_text.split()
+                        print(swap_ar)
+                        if not swap_ar[0].find("/dev/zram0"):
+                            zram_prio = swap_ar[5]
+            except:
+                pass
+            return zram_prio
+        
+        
+        self.zram_priority = ctk.StringVar(value=get_zram_disk_prio())
+        ctk.CTkLabel(self.frame_zram, text="Tamanho do zram:").grid(row=1, column=0, padx=5, pady=5)
+        zram_size = ctk.CTkSlider(self.frame_zram, from_=0, to=self.mem_ram_pc / 2)
+        print(get_zram_size() / 1024 / 1024 / 1024)
+        zram_size.set(get_zram_size())
+        zram_size.bind('<Button-1>', change_slide_val)
+        zram_size.bind("<B1-Motion>", change_slide_val)
+        zram_size.grid(row=1, column=1, padx=5, pady=5)
+        zram_disp_size = get_zram_size()
+        self.zram_used = True if zram_disp_size else False
+        zram_s = ctk.CTkLabel(self.frame_zram, text=str(round(zram_disp_size / 1024 / 1024 / 1024, 1)) + " GB")
+        zram_s.grid(row=1, column=2, padx=5, pady=5)
+        ctk.CTkLabel(self.frame_zram, text="Zram disk priority:").grid(row=2, column=0, padx=5, pady=5)
+        ctk.CTkEntry(self.frame_zram, textvariable=self.zram_priority).grid(row=2, column=1, padx=5, pady=5)
+        ctk.CTkLabel(self.frame_zram, text="Zram algorithm:").grid(row=3, column=0, padx=5, pady=5)
+        zram_comp_wid = ctk.CTkComboBox(self.frame_zram, state="readonly", values=get_zram_algorithms(), command=set_zram_algorithm)
+        zram_comp_wid.set(get_zram_algorithm())
+        zram_comp_wid.grid(row=3, column=1, padx=5, pady=5)
+        ctk.CTkLabel(self.frame_zram, text="max comp streams:").grid(row=4, column=0, padx=5, pady=5)
+        zram_max_comp_entry = ctk.CTkEntry(self.frame_zram, placeholder_text=get_zram_max_comp())
+        zram_max_comp_entry.grid(row=4, column=1, padx=5, pady=5)
+        ctk.CTkButton(self.frame_zram, text="Aplicar alteração", command=set_zram_max_comp).grid(row=4, column=2, padx=5, pady=5)
+        ctk.CTkButton(self.frame_zram, text="Criar dispositivo Zram", command=lambda: set_zram_size(self.zram_priority.get())).grid(row=5, column=0, columnspan=3, pady=5, padx=5)
 
     def memory_hotplug(self):
         if not path.exists("/sys/module/memory_hotplug/parameters"):
@@ -698,8 +721,8 @@ class memory:
      #       rotulo_hotplug_ratio.configure(text=str(int(hotplug_ratio_slider.get())) + "MB")
 
         hotplug_ram_frame = LabelFrame(self.frame_memory, text="Hotplug Ram", background='#212121', foreground="white", labelanchor="n")
-        hotplug_ram_frame.grid(row=6, column=1, padx=5, pady=5)
-        ctk.CTkLabel(hotplug_ram_frame, text="O Hotplug Ram é um mecanismo que permite mudar os modulos fisicos de RAM mesmo que o sistema esteja em execução.", justify="center", wraplength=400).grid(padx=5, pady=5, row=0, column=0, columnspan=3)
+        hotplug_ram_frame.grid(row=5, column=1, padx=5, pady=5)
+        ctk.CTkLabel(hotplug_ram_frame, text="O Hotplug Ram é um mecanismo que permite mudar os modulos fisicos de RAM mesmo que o sistema esteja em execução.", justify="center", wraplength=400).grid(padx=5, pady=5, row=0, column=0, columnspan=4)
         ctk.CTkLabel(hotplug_ram_frame, text="Hotplug Ram:").grid(row=1, column=0, padx=5, pady=5)
         hotplug_button = ctk.CTkSwitch(hotplug_ram_frame, text="off/on", command=set_hotplug_mem_status)
         if get_hotplug_mem_status() == "Y":
@@ -720,10 +743,12 @@ class memory:
         hotplug_ratio_slider.grid(row=3, column=1, rowspan=2, pady=5)
       #  rotulo_hotplug_ratio = ctk.CTkLabel(hotplug_ratio_slider, text=str(ratio_init) + "MB")
        # rotulo_hotplug_ratio.grid(row=3, column=2)
-        ctk.CTkButton(hotplug_ram_frame, text="save ratio val", command=set_hotplug_ratio_status).grid(row=5, column=0, columnspan=2)
+        ctk.CTkButton(hotplug_ram_frame, text="save ratio val", command=set_hotplug_ratio_status).grid(row=3, column=3, padx=5)
 
     def rende_ksm(self):
         if not path.exists("/sys/kernel/mm/ksm"):
+        #    ctk.CTkFrame(self.frame_memory, height=300, width=450).grid(row=2, column=0, padx=5, pady=5)
+         #   f.grid(row=2, column=0, padx=5, pady=5)
             return
 
         def get_ksm_status():
@@ -749,11 +774,12 @@ class memory:
              #   print("err efvtrt")
               #  return 0
             
-        def set_ksm_max_cpu_usage():
+        def set_ksm_max_cpu_usage(value):
             try:
+                value = str(int(value))
                 with open("/sys/kernel/mm/ksm/advisor_max_cpu", "w") as fd:
-                    print(ksm_cpu_usage_slider.get())
-                    fd.write(str(int(ksm_cpu_usage_slider.get())))
+                    label_cpu_ksm_usage.configure(text=value + "%")
+                    fd.write(value)
             except Exception as e:
                 CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
@@ -793,16 +819,18 @@ class memory:
 
         ksm_status_var = ctk.StringVar(value=get_ksm_status())
         ksm_frame = LabelFrame(self.frame_memory, text="KSM", background='#212121', foreground="white", labelanchor="n")
-        ksm_frame.grid(row=7, column=1, padx=5, pady=5)
+        ksm_frame.grid(row=2, column=0, padx=5, pady=5)
         ctk.CTkLabel(ksm_frame, text="KSM: ").grid(row=0, column=0, padx=5, pady=5)
         ksm_button = ctk.CTkComboBox(ksm_frame, values=["0", "1", "2"], command=set_ksm_status, variable=ksm_status_var, state="readonly")
         #ksm_button.set(get_ksm_status())
         ksm_button.grid(row=0, column=1, pady=5)
         ctk.CTkLabel(ksm_frame, text="KSM cpu usage:").grid(row=1, column=0)
-        ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90)
+        ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90, command=set_ksm_max_cpu_usage)
         ksm_cpu_usage_slider.set(int(get_ksm_max_cpu_usage()))
         ksm_cpu_usage_slider.grid(row=1, column=1)
-        ctk.CTkButton(ksm_frame, text="Alterar", command=set_ksm_max_cpu_usage).grid(row=1, column=2)
+     #   ctk.CTkButton(ksm_frame, text="Alterar", command=set_ksm_max_cpu_usage).grid(row=1, column=2)
+        label_cpu_ksm_usage = ctk.CTkLabel(ksm_frame, text=str(get_ksm_max_cpu_usage()) + "%")
+        label_cpu_ksm_usage.grid(row=1, column=2, sticky="w")
 
         ctk.CTkLabel(ksm_frame, text="Use zero page:").grid(row=2, column=0)
         ksm_zero_page = ctk.CTkSwitch(ksm_frame, text="off/on", command=set_zero_page)
@@ -888,7 +916,7 @@ class memory:
 
         uksm_status_var = ctk.StringVar(value=get_uksm_status())
         uksm_frame = LabelFrame(self.frame_memory, text="UKSM", background='#212121', foreground="white", labelanchor="n")
-        uksm_frame.grid(row=8, column=1, padx=5, pady=5)
+        uksm_frame.grid(row=2, column=0, padx=5, pady=5)
         ctk.CTkLabel(uksm_frame, text="UKSM: ").grid(row=0, column=0, padx=5, pady=5)
         uksm_button = ctk.CTkComboBox(uksm_frame, values=["0", "1", "2"], command=set_uksm_status, variable=uksm_status_var, state="readonly")
         #uksm_button.set(get_ksm_status())
@@ -931,15 +959,23 @@ class memory:
                 pass
             return swaps_files
 
+        def disable_swap(swap, b_swap, l_swap):
+            system(f"sudo swapoff {swap}")
+            b_swap.forget()
+            l_swap.forget()
+
         swap_area_frame = LabelFrame(self.frame_memory, text="Swap area", background='#212121', foreground="white", labelanchor="n")
         swap_area_frame.grid(row=9, column=1, padx=5, pady=5)
-        get_swap_disks()
+     #   swaps = get_swap_disks()
         ctk.CTkLabel(swap_area_frame, text="Swap name").grid(row=0, column=0, padx=5, pady=5)
-        ctk.CTkLabel(swap_area_frame, text="Swap status").grid(row=0, column=1, padx=5, pady=5)
-        ctk.CTkLabel(swap_area_frame, text="Swap size").grid(row=0, column=2, padx=5, pady=5)
+        ctk.CTkLabel(swap_area_frame, text="Swap button").grid(row=0, column=1, padx=5, pady=5)
+       # ctk.CTkLabel(swap_area_frame, text="Swap size").grid(row=0, column=2, padx=5, pady=5)
         row = 1
         for swap in get_swap_disks():
-            ctk.CTkLabel(swap_area_frame, text=swap).grid(row=row, column=0, padx=5, pady=5)
+            label_swap = ctk.CTkLabel(swap_area_frame, text=swap)
+            label_swap.grid(row=row, column=0, padx=5, pady=5)
+            self.buton_swap = ctk.CTkButton(swap_area_frame, text="Disable Swap", command=lambda swap_file=swap, bt_swap=self.buton_swap, l_swap=label_swap: disable_swap(swap_file, bt_swap, l_swap))
+            self.buton_swap.grid(row=row, column=1, padx=5, pady=5)
             row += 1
 
     def rende_memory(self, menu):
@@ -955,4 +991,4 @@ class memory:
         self.rende_ksm()
         self.rende_uksm()
         self.memory_hotplug()
-        self.rende_swap_area()
+   #     self.rende_swap_area()
