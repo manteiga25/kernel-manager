@@ -43,15 +43,14 @@ class memory:
                 print("arquivo" + folder + " " + str(status.st_mode))
         return info, perm
 
-    def set_memory_info(self, mem):
-        for value, folder in zip(mem.values(), mem.keys()):
+    def set_memory_info(self, mem : dict):
+        for folder in mem.keys():
             try:
                 with open("/proc/sys/vm/" + folder, "w") as f:
-                    print(folder, "change to, ", value)
-                    f.write(value)
+                    print(folder, "change to, ", mem[folder])
+                    f.write(mem[folder])
             except Exception as e:
-                self.error.escreve_erro(f"Error to set memory {folder}", str(e))
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+                CTkMessagebox(title="Error", message=f"A one error ocurred to try to write value\n{e}", icon="cancel")
 
     def set_memory_param(self):
         change = {}
@@ -59,7 +58,8 @@ class memory:
             for var, key in zip(self.entry_vars.keys(), self.vm_info.keys()):
                 print(f"{str(var)} {self.vm_info[var]} != {self.entry_vars[var].get()}")
                 tmp = self.entry_vars[var].get() # increase cache hit and less instruction executing
-                self.verify_value_is_num(tmp)
+                print(type(tmp))
+            #    self.verify_value_is_num(tmp)
                 if self.vm_info[var] != tmp:
                 #    self.set_memory_info(var)
                     change[var] = tmp
@@ -74,7 +74,6 @@ class memory:
         self.vm_widget = {}
         frame_vm_info = LabelFrame(self.frame_memory, text="VM info", background='#212121', foreground="white", labelanchor="n")
         frame_vm_info.grid(column=0, row=1, columnspan=6)
-    #    frame_vm_info.grid(column=0, row=1)
         for info, local in zip(self.vm_info.keys(), range(len(self.vm_info))):
             row = local // 3
             col = (local % 3) * 3
@@ -82,14 +81,8 @@ class memory:
             self.entry_var = ctk.StringVar()
             self.entry_var.set(self.vm_info[info])
             self.entry_vars[info] = self.entry_var
-                #self.entry_vars[info] = vm_info[info]
-                #ctk.CTkEntry(frame_vm_info, placeholder_text=vm_info[info], justify="left").grid(padx=5, row=local, column=1)
-              #  self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, placeholder_text=self.vm_info[info], justify="left").grid(padx=5, pady=5, row=local, column=1)
             self.vm_widget[info] = ctk.CTkEntry(frame_vm_info, textvariable=self.entry_var, justify="left").grid(padx=5, pady=5, row=row, column=col+1)
             col += 3
-       #     else:
-        #        ctk.CTkLabel(frame_vm_info, text=info.replace("_", " ") + " : ").grid(padx=5, pady=5, row=row, column=col)
-         #       ctk.CTkLabel(frame_vm_info, text=self.vm_info[info] + " (read-only)").grid(padx=5, pady=5, row=row, column=col+1, sticky="w")
 
         ctk.CTkButton(frame_vm_info, text="Salvar alterações", width=200, height=40, command=self.set_memory_param).grid(columnspan=6, pady=5, column=1)
 
@@ -133,38 +126,12 @@ class memory:
         self.rende_memory_bar()
 
     def rende_hugepage_1gb(self):
-        def get_1gb_huge(folder):
-            try:
-                with open(f"/sys/kernel/mm/hugepages/hugepages-1048576kB/{folder}", "r") as fd:
-                    return fd.read().strip()
-            except:
-                return "0"
-
-        def set_1gb_huge(folder, idx):
-            value = entry_hp[idx].get()
-            try:
-                self.verify_value_is_num(value)
-                with open(f"/sys/kernel/mm/hugepages/hugepages-1048576kB/{folder}", "w") as fd:
-                    fd.write(value)
-            except ValueError as e:
-                CTkMessagebox(title="value invalid", message=str(e), icon="cancel")
-            except Exception as e:
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
-
         if round(self.mem_ram_pc / 1024 / 1024 / 1024, 1) < 30.0:
             return
 
-        hugepage_1bg = LabelFrame(self.frame_memory, text="Hugepage 1gb", background='#212121', foreground="white", labelanchor="n")
-        hugepage_1bg.grid(row=4, column=1, padx=5, pady=5)
-        folders = ["nr_hugepages", "nr_overcommit_hugepages"]
-        labels = ["Nr hugepages 1gb:", "overcommit_hugepages:"]
-        entry_hp = list(range(2))
+        from memory.huge_tlb_1gb import Huge_tlb_1GB
 
-        for folder, label, row in zip(folders, labels, range(2)):
-            ctk.CTkLabel(hugepage_1bg, text=label).grid(row=row, column=0, padx=5, pady=5)
-            entry_hp[row] = ctk.CTkEntry(hugepage_1bg, placeholder_text=get_1gb_huge(folder))
-            entry_hp[row].grid(row=row, column=1, padx=5, pady=5)
-            ctk.CTkButton(hugepage_1bg, text="Aplicar alteração", command=lambda f=folder, index=row: set_1gb_huge(f, index)).grid(row=row, column=2, padx=5, pady=5)
+        Huge_tlb_1GB.rende_huge_tlb(self.frame_memory, self.messager)
 
     def rende_zswap(self):
         if not path.exists("/sys/module/zswap"):
@@ -319,108 +286,29 @@ class memory:
 
         Ram_Hotplug.memory_hotplug(self.frame_memory, self.mem_ram_pc, self.messager)
 
-    def rende_ksm(self):
-        if not path.exists("/sys/kernel/mm/ksm"):
-            return
+    def check_ksm_mode(self):
+        if path.exists("/sys/kernel/mm/ksm"):
+            self.rende_ksm()
+        elif path.exists("/sys/kernel/mm/uksm"):
+            self.rende_uksm()
 
+    def rende_ksm(self):
         from memory.KSM import ksm
 
         ksm.rende_ksm(self.frame_memory, self.messager)
 
     def rende_uksm(self):
-        if not path.exists("/sys/kernel/mm/uksm"):
+        from memory.UKSM import uksm
+
+        uksm.rende_uksm(self.frame_memory, self.messager)
+
+    def rende_lru(self):
+        if not path.exists("/sys/kernel/mm/lru_gen"):
             return
 
-        def get_uksm_status():
-            try:
-                with open("/sys/kernel/mm/uksm/run", "r") as fd:
-                    return fd.read().strip()
-            except:
-                return "0"
-                
-        def set_uksm_status(choice):
-            try:
-                with open("/sys/kernel/mm/uksm/run", "w") as fd:
-                # fd.write(ksm_button.get())
-                    fd.write(choice)
-            except Exception as e:
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+        from memory.MLGRU import mlgru
 
-        def get_uksm_max_cpu_usage():
-            try:
-                with open("/sys/kernel/mm/uksm/advisor_max_cpu", "r") as fd:
-                    return int(fd.read().strip())
-            except:
-                return 0
-                
-        def set_uksm_max_cpu_usage():
-            try:
-                with open("/sys/kernel/mm/uksm/advisor_max_cpu", "w") as fd:
-                    fd.write(str(uksm_cpu_usage_slider.get()))
-            except Exception as e:
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
-
-        def get_zero_page_status():
-            try:
-                with open("/sys/kernel/mm/uksm/use_zero_pages", "r") as fd:
-                    return fd.read().strip()
-            except:
-                return "0"
-                
-        def set_zero_page():
-            try:
-                with open("/sys/kernel/mm/uksm/use_zero_pages", "w") as fd:
-                    fd.write(uksm_zero_page.get())
-            except Exception as e:
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
-
-        def get_param_uksm(folder):
-            try:
-                with open(f"/sys/kernel/mm/uksm/{folder}", "r") as fd:
-                    return fd.read().strip()
-            except:
-                return "0"
-
-        def set_param_uksm(folder, value):
-            try:
-                if not value.isdigit():
-                    raise ValueError("The parameter has been integer not string")
-                with open(f"/sys/kernel/mm/uksm/{folder}", "w") as fd:
-                    fd.write(value)
-            except Exception as e:
-                CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
-
-        # tratamento futuro para pages to scan, smart scan?
-        entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "adivsor_max_pages_to_scan"]
-        entry_names = ["Pages to scan:", "sleep millisecs:", "Check pages metadata:", "Target scan time:", "Min pages to scan:", "Max pages to scan:"]
-
-        uksm_status_var = ctk.StringVar(value=get_uksm_status())
-        uksm_frame = LabelFrame(self.frame_memory, text="UKSM", background='#212121', foreground="white", labelanchor="n")
-        uksm_frame.grid(row=2, column=0, padx=5, pady=5)
-        ctk.CTkLabel(uksm_frame, text="UKSM: ").grid(row=0, column=0, padx=5, pady=5)
-        uksm_button = ctk.CTkComboBox(uksm_frame, values=["0", "1", "2"], command=set_uksm_status, variable=uksm_status_var, state="readonly")
-        #uksm_button.set(get_ksm_status())
-        uksm_button.grid(row=0, column=1, pady=5)
-        ctk.CTkLabel(uksm_frame, text="UKSM cpu usage:").grid(row=1, column=0)
-        uksm_cpu_usage_slider = ctk.CTkSlider(uksm_frame, from_=0, to=90)
-        uksm_cpu_usage_slider.set(get_uksm_max_cpu_usage())
-        uksm_cpu_usage_slider.grid(row=1, column=1)
-        ctk.CTkButton(uksm_frame, text="Alterar", command=set_uksm_max_cpu_usage).grid(row=1, column=2)
-
-        ctk.CTkLabel(uksm_frame, text="Use zero page:").grid(row=2, column=0)
-        uksm_zero_page = ctk.CTkSwitch(uksm_frame, text="off/on", command=set_zero_page)
-        if get_zero_page_status() == "1":
-            uksm_zero_page.select()
-        uksm_zero_page.grid(row=2, column=1)
-
-        row = 2
-        entry_param = list(range(6))
-        for label, folder, index in zip(entry_names, entry_params, range(6)):
-            row += 1
-            ctk.CTkLabel(uksm_frame, text=label).grid(column=0, row=row)
-            entry_param[index] = ctk.CTkEntry(uksm_frame, placeholder_text=lambda: get_param_uksm(folder))
-            entry_param[index].grid(column=1, row=row)
-            ctk.CTkButton(uksm_frame, text="Aplicar alterações", command=lambda i=index: set_param_uksm(folder, entry_param[i].get())).grid(column=2, row=row)
+        mlgru.rende_lru(self.frame_memory, self.messager)
 
     def rende_swap_area(self):
         def get_swap_disks():
@@ -468,7 +356,7 @@ class memory:
         self.rende_thp()
         self.rende_zswap()
         self.rende_zram()
-        self.rende_ksm()
-        self.rende_uksm()
+        self.check_ksm_mode()
         self.memory_hotplug()
+        self.rende_lru()
    #     self.rende_swap_area()
