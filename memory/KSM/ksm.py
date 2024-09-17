@@ -6,22 +6,10 @@ from subprocess import run, PIPE
 
 def rende_ksm(frame_memory, messager : Queue):
 
-    def get_advisor_modes():
-        try:
-            with open("/sys/kernel/mm/ksm/advisor_mode", "r") as fd:
-                modes = fd.read().strip()
-                modes = modes.replace("[", '')
-                modes = modes.replace("]", '')
-                modes_list = modes.split()
-                return modes_list
-        except:
-            return "err"
-
     def get_advisor_mode():
         try:
             with open("/sys/kernel/mm/ksm/advisor_mode", "r") as fd:
                 modes = fd.read().strip().split()
-                print(modes)
                 default_mode = [mode for mode in modes if not mode.find("[")]
                 default_mode = default_mode[0].replace("[", "")
                 default_mode = default_mode.replace("]", "")
@@ -38,15 +26,17 @@ def rende_ksm(frame_memory, messager : Queue):
 
     def set_ksm_status(choice):
         nonlocal ksm_status
+        choice = choice[0]
         if ksm_status == choice:
             return
         try:
             with open("/sys/kernel/mm/ksm/run", "w") as fd:
                fd.write(choice)
+            messager.put(f"Memory ksm: Success to set ksm status from {ksm_status} to {choice}")
             ksm_status = choice
         except Exception as e:
             ksm_button.set(ksm_status)
-            messager.put(f"Memory ksm: Error to set ksm status to {choice}, {e}")
+            messager.put(f"Memory ksm: Error to set ksm status from {ksm_status} to {choice}, {e}")
             CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
     def get_ksm_max_cpu_usage():
@@ -57,38 +47,42 @@ def rende_ksm(frame_memory, messager : Queue):
             return -1
 
     def set_ksm_max_cpu_usage(value):
+        nonlocal max_cpu_usage_status
         try:
-            value = str(int(value))
+            if value == max_cpu_usage_status:
+                return
             with open("/sys/kernel/mm/ksm/advisor_max_cpu", "w") as fd:
                 label_cpu_ksm_usage.configure(text=value + "%")
-                fd.write(value)
-            max_cpu_usage_status = int(value)
+                fd.write(str(value))
+            max_cpu_usage_status = value
         except Exception as e:
             label_cpu_ksm_usage.configure(text=str(max_cpu_usage_status) + "%")
+            ksm_cpu_usage_slider.set(max_cpu_usage_status)
             messager.put(f"Memory ksm: Error to set ksm max cpu value to {value}, {e}")
             CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
 
-    def get_zero_page_status():
+    def get_ksm_bolean_status(file):
         try:
-            with open("/sys/kernel/mm/ksm/use_zero_pages", "r") as fd:
+            with open(f"/sys/kernel/mm/ksm/{file}", "r") as fd:
                 return fd.read().strip()
         except:
             return "-1"
 
-    def set_zero_page():
-        nonlocal ksm_zero_page_status
-        value = ksm_zero_page.get()
+    def set_ksm_bolean_status(feature, index):
+        nonlocal ksm_switch_feature_status
+        value = ksm_switch_widget[index].get()
         try:
-            with open("/sys/kernel/mm/ksm/use_zero_pages", "w") as fd:
+            with open(f"/sys/kernel/mm/ksm/{feature}", "w") as fd:
                 fd.write(str(value))
-            ksm_zero_page_status = value
+            messager.put(f"Memory ksm: Success to set ksm {feature} from {ksm_switch_feature_status} to {value}")
+            ksm_switch_feature_status[idx] = value
         except Exception as e:
-            if ksm_zero_page_status == 1:
-                ksm_zero_page.select()
+            if ksm_switch_feature_status[idx] == 1:
+                ksm_switch_widget[idx].select()
             else:
-                ksm_zero_page.deselect()
-            messager.put(f"Memory ksm: Error to set ksm zero page to {value}, {e}")
-            CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+                ksm_switch_feature_status[idx].deselect()
+            messager.put(f"Memory ksm: Error to set {feature} from {ksm_switch_feature_status} to {value}, {e}")
+            CTkMessagebox(title="Error", message=f"A one error ocurred to try to write value\n{e}", icon="cancel")
 
     def get_param_ksm(folder):
         try:
@@ -96,19 +90,6 @@ def rende_ksm(frame_memory, messager : Queue):
                 return fd.read().strip()
         except:
             return "-1"
-
-    def set_ksm_advisor_mode(mode):
-        nonlocal ksm_advisor_status
-        if mode == ksm_advisor_status:
-            return
-        result = run([f"echo {mode} > /sys/kernel/mm/ksm/advisor_mode"], stdout=PIPE, stderr=PIPE, text=True, shell=True)
-        if result.stderr:
-            ksm_advisor_mode.set(ksm_advisor_status)
-            messager.put(f"Error memory ksm: {result.stderr}")
-            CTkMessagebox("Error", f"Error to set {mode} to {ksm_advisor_status} in thp mode\n{result.stderr}")
-        else:
-            messager.put(f"Memory ksm: Success to set ksm mode from {ksm_advisor_status} to {mode}, {result.stdout}")
-            ksm_advisor_status = mode
 
     def set_param_ksm(folder, value):
         try:
@@ -121,11 +102,26 @@ def rende_ksm(frame_memory, messager : Queue):
             messager.put(f"Memory ksm: Error {value} is invalid value, {e}")
         except Exception as e:
             messager.put(f"Memory ksm: Error to set ksm {folder} status to {value}, {e}")
-            CTkMessagebox(title="Error", message="A one error ocurred to try to write value\n" + str(e), icon="cancel")
+            CTkMessagebox(title="Error", message=f"A one error ocurred to try to write value\n{e}", icon="cancel")
 
-        # tratamento futuro para pages to scan, smart scan?
+    def set_ksm_advisor_mode(mode):
+        nonlocal ksm_advisor_status
+        if mode == ksm_advisor_status:
+            return
+        result = run([f"echo {mode} > /sys/kernel/mm/ksm/advisor_mode"], stdout=PIPE, stderr=PIPE, text=True, shell=True)
+        if result.stderr:
+            ksm_advisor_mode.set(ksm_advisor_status)
+            messager.put(f"Error memory ksm: {result.stderr}")
+            CTkMessagebox("Error", f"Error to set {mode} to {ksm_advisor_status} in ksm advisor mode\n{result.stderr}")
+        else:
+            messager.put(f"Memory ksm: Success to set ksm mode from {ksm_advisor_status} to {mode}, {result.stdout}")
+            ksm_advisor_status = mode
+
     entry_params = ["pages_to_scan", "sleep_millisecs", "stable_node_chains_prune_millisecs", "advisor_target_scan_time", "advisor_min_pages_to_scan", "advisor_max_pages_to_scan"]
     entry_names = ["Pages to scan:", "sleep millisecs:", "Check pages metadata:", "Target scan time:", "Min pages to scan:", "Max pages to scan:"]
+
+    switch_params = ["merge_across_nodes", "use_zero_pages", "smart_scan"]
+    switch_names = ["Merge across nodes:", "Use zero page:", "Smart scan:"]
 
     ksm_status = get_ksm_status()
     if ksm_status == "-1": # fatal error
@@ -134,17 +130,17 @@ def rende_ksm(frame_memory, messager : Queue):
     ksm_frame = LabelFrame(frame_memory, text="KSM", background='#212121', foreground="white", labelanchor="n")
     ksm_frame.grid(row=2, column=0, padx=5, pady=5)
     ctk.CTkLabel(ksm_frame, text="KSM: ").grid(row=0, column=0, padx=5, pady=5)
-    ksm_button = ctk.CTkComboBox(ksm_frame, values=["0", "1", "2"], command=set_ksm_status, variable=ksm_status_var, state="readonly")
+    ksm_button = ctk.CTkComboBox(ksm_frame, values=["0 (off)", "1 (on)", "2 (off unmerge pages)"], command=set_ksm_status, variable=ksm_status_var, state="readonly")
     ksm_button.grid(row=0, column=1, pady=5)
 
     ksm_advisor_status = get_advisor_mode()
     if ksm_advisor_status != "err":
         ctk.CTkLabel(ksm_frame, text="KSM advisor mode: ").grid(row=1, column=0, padx=5, pady=5)
-        ksm_advisor_mode = ctk.CTkComboBox(ksm_frame, values=get_advisor_modes(), command=set_ksm_advisor_mode, state="readonly")
+        ksm_advisor_mode = ctk.CTkComboBox(ksm_frame, values=["none", "scan-time"], command=set_ksm_advisor_mode, state="readonly")
         ksm_advisor_mode.set(ksm_advisor_status)
         ksm_advisor_mode.grid(row=1, column=1, padx=5, pady=5)
 
-    max_cpu_usage_status = int(get_ksm_max_cpu_usage())
+    max_cpu_usage_status = get_ksm_max_cpu_usage()
     if max_cpu_usage_status != -1:
         ctk.CTkLabel(ksm_frame, text="KSM cpu usage:").grid(row=2, column=0)
         ksm_cpu_usage_slider = ctk.CTkSlider(ksm_frame, from_=0, to=90, command=set_ksm_max_cpu_usage)
@@ -153,22 +149,27 @@ def rende_ksm(frame_memory, messager : Queue):
         label_cpu_ksm_usage = ctk.CTkLabel(ksm_frame, text=str(max_cpu_usage_status) + "%")
         label_cpu_ksm_usage.grid(row=2, column=2, sticky="w")
 
-    ksm_zero_page_status = get_zero_page_status()
-    if ksm_zero_page_status != "-1":
-        ctk.CTkLabel(ksm_frame, text="Use zero page:").grid(row=3, column=0)
-        ksm_zero_page = ctk.CTkSwitch(ksm_frame, text="off/on", command=set_zero_page)
-        if ksm_zero_page_status == "1":
-            ksm_zero_page.select()
-        ksm_zero_page.grid(row=3, column=1)
-
     row = 3
+    ksm_switch_feature_status = list(range(3))
+    ksm_switch_widget = list(range(3))
+    for label, feature, idx in zip(switch_names, switch_params, range(3)):
+        ksm_switch_feature_status[idx] = get_ksm_bolean_status(feature)
+        if ksm_switch_feature_status[idx] == "-1":
+            continue
+        ctk.CTkLabel(ksm_frame, text=label).grid(column=0, row=row)
+        ksm_switch_widget[idx] = ctk.CTkSwitch(ksm_frame, text="off/on", command=lambda f=feature, index=idx: set_ksm_bolean_status(f, index))
+        if ksm_switch_feature_status[idx] == "1":
+            ksm_switch_widget[idx].select()
+        ksm_switch_widget[idx].grid(row=row, column=1)
+        row += 1
+
     entry_param = list(range(6))
     for label, folder, index in zip(entry_names, entry_params, range(6)):
         ksm_feature_status = get_param_ksm(folder)
         if ksm_feature_status == "-1":
             continue
         row += 1
-        ctk.CTkLabel(ksm_frame, text=label).grid(row=row, column=0, padx=5, pady=5)
+        ctk.CTkLabel(ksm_frame, text=label).grid(column=0, row=row, padx=5, pady=5)
         entry_param[index] = ctk.CTkEntry(ksm_frame, placeholder_text=ksm_feature_status)
         entry_param[index].grid(column=1, row=row, padx=5, pady=5)
         ctk.CTkButton(ksm_frame, text="Aplicar alterações", command=lambda f=folder, i=index: set_param_ksm(f, entry_param[i].get())).grid(column=2, row=row, padx=5, pady=5)
